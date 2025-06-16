@@ -33,8 +33,29 @@ This directory contains literature relevant to the auto-regressive Markov proces
 - [ ] Geometric interpretations of embeddings
 
 ## Collection Status
-- [ ] Initial reference list compiled
+- [x] Initial reference list compiled
 - [ ] PDFs downloaded and organized
-- [ ] Initial reading notes created
-- [ ] Cross-references identified
+- [x] Initial reading notes created
+- [x] Cross-references identified
 - [ ] Synthesis document started
+
+## Completed Literature Searches
+
+### Auto-regression & LLM Reasoning
+- [x] Dr. Elan Barenholtz's publications (FAU) - See `autoregression/barenholtz_elan_fau_2023_2024.md`
+- [x] Found connections to sequential processing and predictive cognition
+
+### Markov Processes  
+- [x] Bibliography of autoregression-Markov connections - See `markov_processes/bibliography.md`
+- [x] Theoretical connections analysis - See `markov_processes/theoretical_connections.md`
+- [x] Key papers summary with reading order - See `markov_processes/key_papers_summary.md`
+
+### Complexity Theory
+- [x] Julian Barbour's complexity framework - See `complexity_theory/barbour_complexity_framework.md`
+- [x] Shape dynamics and the Janus Point theory
+- [x] Connections to information theory and embedding spaces
+
+### Geometric Computation
+- [x] The Gray Cuber analysis - See `geometric_computation/gray_cuber_analysis.md`
+- [x] Algorithm implementations - See `geometric_computation/code_snippets.md`
+- [x] ML applications of geometric concepts - See `geometric_computation/ml_applications.md`
