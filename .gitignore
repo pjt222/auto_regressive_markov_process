@@ -1,0 +1,71 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.env
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+
+# PDF copies of papers (for copyright reasons)
+literature/**/*.pdf
+
+# But track our own generated PDFs
+!output/*.pdf
+!figures/*.pdf
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Large data files
+*.csv
+*.dat
+*.h5
+*.hdf5
+
+# Model files
+*.pkl
+*.pt
+*.pth
+*.ckpt
+
+# Keep empty directories
+!.gitkeep
+
+# Claude Code specific
+.claude/settings.local.json
