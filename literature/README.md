@@ -49,6 +49,7 @@ This directory contains literature relevant to the auto-regressive Markov proces
 - [x] Bibliography of autoregression-Markov connections - See `markov_processes/bibliography.md`
 - [x] Theoretical connections analysis - See `markov_processes/theoretical_connections.md`
 - [x] Key papers summary with reading order - See `markov_processes/key_papers_summary.md`
+- [ ] Reading notes for essential papers - See `markov_processes/reading_notes/`
 
 ### Complexity Theory
 - [x] Julian Barbour's complexity framework - See `complexity_theory/barbour_complexity_framework.md`
