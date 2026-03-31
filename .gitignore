@@ -75,5 +75,8 @@ _output/
 !jmlr-title.tex
 .quarto/
 
+# Session continuity (ephemeral)
+CONTINUE_HERE.md
+
 # Claude Code specific
 .claude/settings.local.json
