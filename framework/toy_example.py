@@ -191,6 +191,74 @@ class SpinorSSM:
 
 
 # ============================================================================
+# 4b. Spinor SSM with scalar decay (Resolution 1 from issue #22)
+# ============================================================================
+
+class SpinorDecaySSM:
+    """Selective SSM with Spin(3) transition AND scalar decay.
+
+    Transition: h_{t+1} = lambda_t * u_t h_t u_t^{-1} + B_bar_t x_t
+    where u_t = exp(B_t/2) in Spin(3), lambda_t in (0,1), both depend on x_t.
+
+    This combines geometric structure (rotation) with forgetting (decay).
+    """
+
+    def __init__(self, dim: int = 3, seed: int = 0):
+        rng = np.random.default_rng(seed)
+        self.dim = dim
+
+        # Bivector parameters: alpha, beta, gamma per input token
+        self.bivector_params = {
+            0: rng.normal(0, 0.5, size=3),
+            1: rng.normal(0, 0.5, size=3),
+        }
+
+        # Scalar decay per token: lambda_t = sigmoid(raw) in (0, 1)
+        self.decay_raw = {
+            0: rng.normal(1.5, 0.3),   # sigmoid(1.5) ≈ 0.82
+            1: rng.normal(1.5, 0.3),
+        }
+
+        # Input injection
+        self.input_scale = {
+            0: rng.normal(0, 0.3, size=dim),
+            1: rng.normal(0, 0.3, size=dim),
+        }
+
+    def _sigmoid(self, x: float) -> float:
+        return 1.0 / (1.0 + np.exp(-x))
+
+    def step(self, h_t: np.ndarray, x_t: int, x_embed: np.ndarray) -> np.ndarray:
+        """One transition step: lambda * rotate + inject."""
+        # Rotation via sandwich product
+        alpha, beta, gamma = self.bivector_params[x_t]
+        u_t = quaternion_from_bivector(alpha, beta, gamma)
+        rotated = quaternion_rotate(u_t, h_t)
+
+        # Scalar decay
+        lambda_t = self._sigmoid(self.decay_raw[x_t])
+        decayed_rotated = lambda_t * rotated
+
+        # Input injection
+        injected = self.input_scale[x_t] * x_embed
+
+        return decayed_rotated + injected
+
+    def run(self, sequence: np.ndarray, embeddings: np.ndarray) -> np.ndarray:
+        """Run the model on a full sequence. Returns states on S^2."""
+        n_steps = len(sequence)
+        states = np.zeros((n_steps, self.dim))
+
+        h_t = np.array([0.0, 0.0, 1.0])
+
+        for t in range(n_steps):
+            h_t = self.step(h_t, sequence[t], embeddings[t])
+            states[t] = normalize(h_t)
+
+        return states
+
+
+# ============================================================================
 # 5. Diagonal SSM baseline (Mamba-style, no geometric structure)
 # ============================================================================
 
@@ -330,6 +398,7 @@ def main():
     print(f"        max_lag={max_lag}, n_seeds={n_seeds}")
 
     spinor_scores_all = []
+    spinor_decay_scores_all = []
     diagonal_scores_all = []
 
     for seed in range(n_seeds):
@@ -337,54 +406,74 @@ def main():
         sequence = generate_markov_source(n_steps, order=source_order, seed=seed)
         embeddings = embed_tokens(sequence, dim=dim)
 
-        # Run models
+        # Run all three models
         spinor_model = SpinorSSM(dim=dim, seed=seed)
+        spinor_decay_model = SpinorDecaySSM(dim=dim, seed=seed)
         diagonal_model = DiagonalSSM(dim=dim, seed=seed)
 
         spinor_states = spinor_model.run(sequence, embeddings)
+        spinor_decay_states = spinor_decay_model.run(sequence, embeddings)
         diagonal_states = diagonal_model.run(sequence, embeddings)
 
         # Compute Markov scores
         spinor_scores = compute_markov_score(spinor_states, max_lag=max_lag)
+        spinor_decay_scores = compute_markov_score(spinor_decay_states, max_lag=max_lag)
         diagonal_scores = compute_markov_score(diagonal_states, max_lag=max_lag)
 
         spinor_scores_all.append(spinor_scores)
+        spinor_decay_scores_all.append(spinor_decay_scores)
         diagonal_scores_all.append(diagonal_scores)
 
     spinor_mean = np.nanmean(spinor_scores_all, axis=0)
+    spinor_decay_mean = np.nanmean(spinor_decay_scores_all, axis=0)
     diagonal_mean = np.nanmean(diagonal_scores_all, axis=0)
     spinor_std = np.nanstd(spinor_scores_all, axis=0)
+    spinor_decay_std = np.nanstd(spinor_decay_scores_all, axis=0)
     diagonal_std = np.nanstd(diagonal_scores_all, axis=0)
 
     # Report results
-    print("\n" + "-" * 60)
+    print("\n" + "-" * 78)
     print("Markov Score: I(s_{t+1}; s_{t-j} | s_t)")
     print("Lower is more Markovian (0 = perfectly Markov)")
-    print("-" * 60)
-    print(f"{'Lag j':>6} | {'Spinor SSM':>16} | {'Diagonal SSM':>16}")
-    print("-" * 60)
+    print("-" * 78)
+    print(f"{'Lag j':>6} | {'Spinor (no decay)':>18} | {'Spinor + Decay':>18} | {'Diagonal SSM':>16}")
+    print("-" * 78)
     for j in range(max_lag):
         print(
             f"{j + 1:>6} | "
             f"{spinor_mean[j]:>7.4f} +/- {spinor_std[j]:.4f} | "
+            f"{spinor_decay_mean[j]:>7.4f} +/- {spinor_decay_std[j]:.4f} | "
             f"{diagonal_mean[j]:>7.4f} +/- {diagonal_std[j]:.4f}"
         )
 
-    print("-" * 60)
-    mean_spinor = np.nanmean(spinor_mean)
-    mean_diagonal = np.nanmean(diagonal_mean)
-    print(f"{'Mean':>6} | {mean_spinor:>7.4f}{'':>13} | {mean_diagonal:>7.4f}")
+    print("-" * 78)
+    ms = np.nanmean(spinor_mean)
+    msd = np.nanmean(spinor_decay_mean)
+    md = np.nanmean(diagonal_mean)
+    print(f"{'Mean':>6} | {ms:>7.4f}{'':>14} | {msd:>7.4f}{'':>14} | {md:>7.4f}")
 
-    if mean_spinor < mean_diagonal:
-        print("\n>> Spinor SSM has LOWER Markov score (more Markovian)")
-        print(">> Consistent with conjecture (geometric structure helps)")
+    print("\n" + "=" * 78)
+    print("ANALYSIS")
+    print("=" * 78)
+
+    if msd < ms:
+        print(f"  Decay REDUCES spinor Markov score: {ms:.4f} -> {msd:.4f} "
+              f"({(1 - msd/ms)*100:.1f}% reduction)")
     else:
-        print("\n>> Diagonal SSM has LOWER Markov score")
-        print(">> Inconsistent with conjecture at this scale")
+        print(f"  Decay did NOT reduce spinor Markov score: {ms:.4f} -> {msd:.4f}")
 
-    print("\nNote: This toy example uses random (untrained) parameters.")
-    print("The conjecture predicts the advantage grows with training.")
-    print("Full validation requires trained models on real data.")
+    if msd < md:
+        print(f"  Spinor+Decay BEATS diagonal: {msd:.4f} < {md:.4f}")
+        print("  >> CONSISTENT with conjecture: geometric structure + decay helps")
+    elif msd < ms and msd > md:
+        print(f"  Spinor+Decay improved but still > diagonal: {msd:.4f} > {md:.4f}")
+        print("  >> PARTIAL support: decay helps, but geometry alone doesn't beat diagonal")
+    else:
+        print(f"  Diagonal still wins: {md:.4f} < {msd:.4f}")
+        print("  >> Inconsistent with conjecture at this scale (random params)")
+
+    print("\nNote: Random (untrained) parameters. Training expected to change results.")
+    print("See issue #30 for the trained version of this experiment.")
 
 
 if __name__ == "__main__":

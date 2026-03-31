@@ -55,10 +55,10 @@ equipped with the round metric. The state at step $t$ is $s_t = \pi(h_t) \in S^{
 ## 3. Transition Kernel
 
 **Definition 3.1 (Raw transition).** The proposed recurrence for the raw hidden state is:
-$$h_{t+1} = u_t h_t u_t^{-1} + \overline{B}_t x_t, \qquad u_t = \exp(B_t / 2) \in \text{Spin}(p,q)$$
-where $B_t \in \mathfrak{spin}(p,q)$ (a bivector in $Cl(p,q)$) and $\overline{B}_t \in \mathbb{R}^{D \times D}$ are both **input-dependent**: $B_t = B_t(x_t)$, $\overline{B}_t = \overline{B}_t(x_t, \Delta_t)$, with $\Delta_t$ a learned input-dependent step size (the Mamba selection mechanism).
+$$h_{t+1} = \lambda_t \cdot u_t h_t u_t^{-1} + \overline{B}_t x_t, \qquad u_t = \exp(B_t / 2) \in \text{Spin}(p,q)$$
+where $\lambda_t = \sigma(s_\lambda(x_t)) \in (0, 1)$ is an input-dependent scalar decay, $B_t \in \mathfrak{spin}(p,q)$ (a bivector in $Cl(p,q)$) and $\overline{B}_t \in \mathbb{R}^{D \times D}$ are both **input-dependent**: $B_t = B_t(x_t)$, $\overline{B}_t = \overline{B}_t(x_t, \Delta_t)$, with $\Delta_t$ a learned input-dependent step size (the Mamba selection mechanism).
 
-The first term $u_t h_t u_t^{-1}$ is a rotation (parallel transport) of the previous state; the second term $\overline{B}_t x_t$ is an additive input injection.
+The first term $\lambda_t \cdot u_t h_t u_t^{-1}$ combines rotation (parallel transport) with decay (forgetting); the second term $\overline{B}_t x_t$ is an additive input injection. The scalar decay $\lambda_t$ is essential: without it, the sandwich product preserves all information and the process is not approximately Markov (see toy example, issue #22).
 
 **Definition 3.2 (State transition on $\mathcal{S}$).** The induced transition on $s_t = \pi(h_t) \in S^{D-1}$ is:
 $$s_{t+1} = \pi\!\left(u_t h_t u_t^{-1} + \overline{B}_t x_t\right)$$

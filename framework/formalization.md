@@ -12,7 +12,7 @@
 
 *Let $(h_t)_{t \geq 0}$ be the process defined by the recurrence:*
 
-$$h_{t+1} = u_t h_t u_t^{-1} + \overline{B}_t x_t, \quad u_t = \exp(B_t(x_t)/2) \in \text{Spin}(D)$$
+$$h_{t+1} = \lambda_t \cdot u_t h_t u_t^{-1} + \overline{B}_t x_t, \quad u_t = \exp(B_t(x_t)/2) \in \text{Spin}(D), \quad \lambda_t = \sigma(s_\lambda(x_t)) \in (0,1)$$
 
 *where $(x_t)$ is drawn from a source of Markov order $k$ over a finite alphabet,
 $B_t: \mathbb{R}^D \to \bigwedge^2 \mathbb{R}^D$ is a learned bivector-valued
