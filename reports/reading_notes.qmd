@@ -1040,25 +1040,258 @@ This is a hypothesis to be tested, not a conclusion. See issue #17.
 
 # Phase C: Geometric Deep Learning
 
-## 9. Geometric Deep Learning (Bronstein et al. 2021)
+## 9. Geometric Deep Learning (Bronstein et al. 2021) {#sec-bronstein2021}
 
-*Reading status: not started*
+**Authors**: Bronstein, Bruna, Cohen, Velickovic
+**Venue**: arXiv (foundational survey, 150+ pages)
+**arXiv**: 2104.13478 | **Pages read**: 1-20, 40-60, 89-100
 
-## 10. Group Equivariant Convolutional Networks (Cohen & Welling 2016)
+*Reading status: complete (2026-03-31)*
 
-*Reading status: not started*
+### Summary
 
-## 11. Gauge Equivariant Convolutional Networks (Cohen et al. 2019)
+Applies the Erlangen Programme to deep learning: geometry is the study of
+invariants under symmetry groups, and neural architectures should be understood
+as implementations of geometric priors. Every major architecture (CNNs, RNNs,
+GNNs, Transformers) is derivable from building G-equivariant functions over
+structured domains. The second half develops the full differential-geometric
+machinery: Riemannian manifolds, tangent bundles, connections, gauge
+transformations, and fiber bundles.
 
-*Reading status: not started*
+For sequential models (Sec. 5.7-5.8): RNNs implement time-translation
+equivariance: $h^{(t)} = R(z^{(t)}, h^{(t-1)})$ shares parameters across steps
+(time-shift symmetry), and the Markov structure is explicit -- the state $h^{(t)}$
+is the sufficient statistic updated at each step.
 
-## 12. Clifford Neural Layers for PDE Modeling (Ruhe et al. 2023)
+### Key Concepts for Our Framework
 
-*Reading status: not started*
+1. **G-equivariance as foundational principle**: $f(\rho(g)x) = \rho'(g)f(x)$.
+   Our $\overline{A}_t = \exp(\Delta_t A)$ with $A \in \mathfrak{g}$ IS a
+   G-equivariant map. The Lie algebra constraint IS the geometric prior.
 
-## 13. Geometric Algebra Transformers (Brehmer et al. 2023)
+2. **Gauge = choice of coordinate frame**: A gauge-equivariant transition means
+   changing the coordinate representation of $h_t$ produces a correspondingly
+   transformed $h_{t+1}$. This makes the Markov property **coordinate-independent**.
 
-*Reading status: not started*
+3. **Parallel transport as state comparison**: $\exp(\Delta_t A)$ IS the discrete
+   parallel transport operator between $h_t$ and $h_{t+1}$. The Lie algebra
+   constraint keeps the transport within group $G$.
+
+4. **RNN fixed-point initialization**: $h^{(0)} = R(0, h^{(0)})$ -- the initial
+   state must be a fixed point of the zero-input recurrence. Concrete
+   initialization criterion for our framework.
+
+5. **Natural symmetry group for embeddings**: SO(D) is the structure group when
+   restricting to orthonormal frames. Cosine similarity is O(D)-invariant.
+   Recommended $G$: SO(D) or U(D/2) if using complex states.
+
+6. **Quotient caution**: $\mathbb{R}^D / \text{SO}(D)$ collapses to norm $\|h\|$
+   (too coarse). Need a **stabilizer subgroup**, not the full SO(D).
+
+### Relevance to Our Project
+
+**CRITICAL** -- provides the mathematical vocabulary to make our hypothesis precise:
+"Markov transitions in shape space" = gauge-equivariant maps between sections of
+a vector bundle over discrete time. The Erlangen Programme applied to our state
+space means: define $G$, define G-equivariance for the transition, and the
+"shape" of a state is its G-orbit.
+
+**Gap**: No treatment of SSMs (Mamba, S4) in the geometric framework. No
+Markov property analysis -- studies equivariance, not sufficient statistics.
+
+## 10. Group Equivariant CNNs (Cohen & Welling 2016) {#sec-cohen2016}
+
+**Authors**: Taco S. Cohen, Max Welling
+**Venue**: ICML 2016
+**arXiv**: 1602.07576
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+Formalizes G-equivariant convolution: replace the shift operator with arbitrary
+$g \in G$. The G-correlation: $[f \star \psi](g) = \sum_h f(h)\psi(g^{-1}h)$.
+Feature maps on $G$ transform as $[L_g f](x) = f(g^{-1}x)$.
+
+### Key Result for Our Framework
+
+**Coset pooling over subgroup $H \subset G$ produces features on the quotient
+$G/H$** -- this is the explicit construction of our $S/G$. For us: the transition
+on $S$ should be G-equivariant, and the observable output should live on $S/G$.
+Constraining $A \in \mathfrak{g}$ is the Lie-algebra analogue of the G-conv
+weight-sharing constraint.
+
+## 11. Gauge Equivariant CNNs (Cohen et al. 2019) {#sec-cohen2019}
+
+**Authors**: Taco S. Cohen, Maurice Weiler, Berkay Kicanaoglu, Max Welling
+**Venue**: ICML 2019
+**arXiv**: 1902.04615
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+Provides the **precise language for our state space** using fiber bundles.
+
+### Key Results for Our Framework
+
+1. **Gauge transformation** $g_p \in G$ is a position-dependent change of local
+   frame: $w_p \mapsto w_p g_p$. Feature vectors transform contravariantly:
+   $v \mapsto g_p^{-1}v$.
+
+2. **Gauge equivalence $\neq$ quotienting by $G$**. Gauge equivalence identifies
+   coordinate descriptions of the same geometric object (within a fiber).
+   Quotienting collapses orbits across fibers. The relation:
+   $FM/G \cong M$ -- quotienting the frame bundle by $G$ recovers the base
+   manifold. Our $S/G$ IS the base manifold; $S$ is the total space of a
+   principal $G$-bundle over $S/G$.
+
+3. **Gauge invariance is necessary, not optional**: "not just nice to have, but
+   *necessary* for convolution to be geometrically well-defined." This extends
+   to our case: $A \in \mathfrak{g}$ is **required** for the Markov process to be
+   well-defined on $S/G$.
+
+### Open Questions
+
+1. Does $A \in \mathfrak{g}$ (Lie algebra) or $\exp(A) \in G$ (Lie group) -- which
+   is the right constraint for discrete-time transitions?
+2. If $S/G$ is non-parallelizable, do we need an atlas of overlapping charts?
+
+## 12. Clifford Neural Layers for PDE Modeling (Ruhe et al. 2023) {#sec-ruhe2023}
+
+**Authors**: Brandstetter, van den Berg, Welling, Gupta
+**Venue**: ICLR 2023
+**arXiv**: 2209.04934
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+Replaces scalar/vector convolution with Clifford algebra counterparts. Features
+are promoted from scalar arrays to **multivector fields** -- elements of $Cl(p,q)$.
+The geometric product $\mathbf{ab} = \langle a,b \rangle + a \wedge b$ unifies inner
+and exterior products, generalizing complex ($Cl_{0,1}$) and quaternion
+($Cl_{0,2}$) multiplication. Applied to Navier-Stokes, shallow water, and
+Maxwell's equations with consistent improvements.
+
+### Key Mathematical Objects
+
+- **Clifford algebra** $Cl_{p,q}(\mathbb{R})$: generated by $p+q$ basis elements
+  with $e_i^2 = +1$ ($i \leq p$), $e_j^2 = -1$ ($j > p$)
+- **Multivector space** $G^{p+q}$: $2^{p+q}$-dimensional, direct sum of grade-$k$
+  subspaces (scalars, vectors, bivectors, ...)
+- **Geometric product**: bilinear, non-commutative, closes on $G^{p+q}$
+- **Rotational Clifford CNN**: parameterizes filters as quaternions acting via
+  rotation matrix $\mathbf{R}^{i,j} \in \text{Spin}(3) \subset Cl_{0,2}$
+
+### Relevance to Our Project
+
+**On the transition matrix question**: The rotational Clifford CNN builds a
+rotation matrix from quaternion weights -- this IS a transition matrix that is
+an element of the Spin group. **Our hypothesis confirmed**: constrain $A$ to the
+Spin group (even-grade subalgebra of $Cl_{p,q}$ with unit norm), acting by the
+sandwich product $\rho_u(x) = uxu^{-1}$.
+
+**Scalability concern**: $Cl_{p,q}$ has dimension $2^{p+q}$. For $p+q = 512$
+(typical embedding dim), this is astronomically large. We must work with
+**subspaces** (e.g., grade-1 + grade-2 only) or use the algebra structure
+without materializing the full space.
+
+## 13. Geometric Algebra Transformers (Brehmer et al. 2023) {#sec-brehmer2023}
+
+**Authors**: Brehmer, de Haan, Behrends, Cohen
+**Venue**: NeurIPS 2023
+**arXiv**: 2305.18415
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+GATr operates in the **projective geometric algebra** $\mathbb{G}_{3,0,1}$ (PGA).
+All inputs, outputs, and hidden states are 16-dimensional multivectors natively
+encoding 3D points, lines, planes, rotations, translations, reflections.
+Equivariant to E(3) -- the full Euclidean group including translations.
+
+Any E(3)-equivariant linear map $\phi: \mathbb{G}_{3,0,1} \to \mathbb{G}_{3,0,1}$
+is parameterized by only **9 coefficients**. Nonlinear interactions require two
+bilinear operations: geometric product $xy$ and join $(x^* \wedge y^*)^*$.
+Attention uses the PGA inner product $\langle q, k \rangle$.
+
+### Key Insight: The Sandwich Product IS Our Transition
+
+The versor/sandwich product $\rho_u(x) = uxu^{-1}$ where $u \in \text{Spin}(p,q)$
+is exactly a Lie-algebra-constrained SSM transition. The Spin group IS the
+even-grade subalgebra of $Cl_{p,q}$ with unit norm. A unit spinor $u = \exp(B/2)$
+where $B$ is a bivector lies in the Lie algebra $\mathfrak{spin}(p,q) \cong \mathfrak{so}(p+q)$.
+
+**Constraining $A$ to $\mathfrak{so}(N)$ is equivalent to constraining the
+transition to be a sandwich product by a unit spinor in $Cl_{p,q}$.**
+
+GATr shows this works at scale as a Transformer building block. The constraint
+$u \in \text{Spin}(p,q)$ means the transition has $\binom{n}{2}$ parameters
+(bivector components) instead of $n^2$ -- cheaper and geometrically meaningful.
+
+### Open Questions
+
+1. For $N$-dimensional embeddings, the multivector space is $2^N$-dimensional --
+   exponentially large. Need to work with **low-grade truncations** or efficient
+   representations.
+2. GATr is E(3)-equivariant for 3D. For semantic embeddings, what group?
+   Perhaps O(D) or a data-driven learned symmetry.
+3. Can GATr attention across time steps implement a geometric AR recurrence?
+
+## Phase C Summary {#sec-phaseC-summary}
+
+### The Geometric Framework is Now Precise
+
+Phase C resolves the core formalization question. The mathematical vocabulary
+from Bronstein, Cohen, and the Clifford algebra papers gives us:
+
+| Concept | Formal Object | Source |
+|---------|--------------|--------|
+| State space | Total space of a principal $G$-bundle | Cohen 2019 (gauge CNNs) |
+| Observable state | Base manifold $S/G$ (quotient) | Cohen 2016 (coset pooling) |
+| Transition | Parallel transport $\exp(\Delta_t A) \in G$ | Bronstein 2021 (Sec. 4.4) |
+| Lie algebra constraint | $A \in \mathfrak{g}$ (e.g., $\mathfrak{so}(D)$) | Bronstein 2021 (Erlangen) |
+| Sandwich product | $\rho_u(x) = uxu^{-1}$, $u \in \text{Spin}(p,q)$ | Brehmer 2023 (GATr) |
+| Multivector features | Elements of $Cl(p,q)$ | Ruhe 2023 (Clifford layers) |
+| Gauge equivariance | $f(g \cdot x) = g \cdot f(x)$ | Cohen 2019 |
+
+### Updated State Definition (refined)
+
+$$s_t = h_t \in V, \quad h_t = \rho_{u_t}(h_{t-1}) + \overline{B}_t x_t$$
+
+where:
+
+- $V$ is the representation space (a grade-restricted subspace of $Cl(p,q)$)
+- $u_t = \exp(B_t/2) \in \text{Spin}(p,q)$ is a unit spinor parameterized by
+  bivector $B_t = s_B(x_t)$ (input-dependent, like Mamba's selection)
+- $\rho_{u_t}(h) = u_t h u_t^{-1}$ is the sandwich product (equivariant transition)
+- $\overline{B}_t x_t$ is the input injection (gauge-equivariant)
+
+This gives: Mamba's selection mechanism + Clifford algebra structure + gauge
+equivariance. The transition has $\binom{n}{2}$ parameters (bivector) instead
+of $n^2$ (unconstrained matrix).
+
+### Critical Open Problem: Scalability
+
+$Cl(p,q)$ has dimension $2^{p+q}$. For embedding dimension $D = 512$, this is
+$2^{512}$ -- impossibly large. Practical approaches:
+
+1. **Low-grade truncation**: Work with grade-0 + grade-1 + grade-2 only
+   (dimension $1 + n + \binom{n}{2}$)
+2. **Factored structure**: Use block-diagonal Clifford algebras
+   ($Cl(3,0)^{D/3}$)
+3. **Implicit Clifford**: Parameterize $u_t$ as a bivector without materializing
+   the full algebra
+
+### Key Insight
+
+**Gauge equivariance is necessary, not optional** (Cohen 2019). For the Markov
+process to be well-defined on the quotient space $S/G$, the transition MUST
+commute with the group action. This is not regularization -- it is a geometric
+requirement. Our Lie algebra constraint $A \in \mathfrak{g}$ is the minimal
+condition to satisfy this.
 
 # Phase D: Extended Autoregressive Models
 
