@@ -25,12 +25,12 @@ proof or experimental evidence. (See GitHub issue #12.)
 
 # Open Formal Questions
 
-1. **State definition**: What is $s_t$ at autoregressive step $t$?
-2. **Transition kernel**: What is $P(s_{t+1} \in A \mid s_t = x)$?
-3. **Sufficient statistic**: Does $I(x_{t+1}; x_{\leq t} \mid h_t) = 0$?
-4. **Symmetry group**: Which group $G$ acts on the embedding space?
-5. **Quotient metric**: What metric on $S/G$ is induced?
-6. **Stationary distribution**: Does the chain converge?
+1. ~~**State definition**: What is $s_t$?~~ **RESOLVED**: $s_t = h_t/\|h_t\| \in S^{D-1}$. See `framework/state_definition.md`.
+2. ~~**Transition kernel**~~ **RESOLVED**: $h_{t+1} = \lambda_t u_t h_t u_t^{-1} + \overline{B}_t x_t$ with $u_t \in \text{Spin}(D)$, $\lambda_t \in (0,1)$.
+3. **Sufficient statistic**: Does $I(x_{t+1}; x_{\leq t} \mid h_t) = 0$? **OPEN** (issue #34)
+4. **Symmetry group**: Which group $G$? **OPEN** -- $\mathbb{R}_{>0}$ (projective) is the working choice (issue #26)
+5. **Quotient metric**: What metric on $S/G$? **OPEN** -- round metric on $S^{D-1}$ is default
+6. **Stationary distribution**: Does the chain converge? **OPEN** (issue #32)
 
 # Progress Log
 
@@ -42,6 +42,35 @@ proof or experimental evidence. (See GitHub issue #12.)
   missing formal bridge
 - Soft-deprecated Gray Cuber and Barbour to secondary/inspirational
 - Full report: `literature/reviews/deep_review_2026_03_31.md`
+
+## 2026-03-31: Literature Reading Complete (24/31 papers)
+
+- Phase A (4 papers): Three mechanisms for Markov structure + NeuralMJP rate matrix
+- Phase B (4 papers): Curse of memory constrains state dim; Mamba = best candidate
+- Phase C (5 papers): Gauge equivariance necessary; sandwich product IS the transition
+- Phase D (5 papers): Continuous-state AR validated; manifold drift needs attention
+- Phase E (6 papers): Spectral HMM learning; TRACE distillation; Barbour $C_s$ defined
+
+## 2026-03-31: Formalization Milestones
+
+- `framework/state_definition.md`: State on $S^{D-1}$, spinor transitions with decay
+- `framework/formalization.md`: Conjecture with falsification criteria
+- `framework/toy_example.py`: 3D experiment comparing 3 models
+
+## 2026-03-31: Key Experimental Finding (Issue #22)
+
+**Rotation-forgetting tension**: Spinor rotation preserves information (doesn't
+forget), but Markovianity requires forgetting. Resolution: add scalar decay
+$\lambda_t$. Results with random parameters:
+
+| Model | Mean Markov Score | Status |
+|-------|------------------|--------|
+| Spinor (no decay) | 0.6829 | Not Markovian |
+| **Spinor + Decay** | **0.3622** | **47% improved** |
+| Diagonal SSM | 0.0178 | Most Markovian (baseline) |
+
+Decay reduces the spinor's Markov score by 47%. Diagonal SSM still wins with
+random params. Next step: training (issue #30).
 
 # Domain Priorities
 
