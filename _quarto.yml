@@ -1,0 +1,26 @@
+project:
+  title: "Autoregressive Markov Processes in Shape Space"
+  type: default
+  output-dir: _output
+
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+    self-contained: true
+  pdf:
+    documentclass: article
+    number-sections: true
+    toc: true
+    colorlinks: true
+
+bibliography: references.bib
+engine: knitr
+
+execute:
+  echo: true
+  warning: false
+  message: false

@@ -1,0 +1,47 @@
+---
+title: "Framework Progress: Autoregressive Markov Processes in Shape Space"
+author: "Philipp Thoss"
+date: last-modified
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Convergent Thesis
+
+> An autoregressive model whose state is defined as a point in a quotient
+> embedding space (modulo some symmetry group) can preserve the Markov property
+> under conditions that are formalizable and empirically testable -- and the
+> structure of the quotient determines what "complexity" means for the generated
+> sequence.
+
+# Open Formal Questions
+
+1. **State definition**: What is $s_t$ at autoregressive step $t$?
+2. **Transition kernel**: What is $P(s_{t+1} \in A \mid s_t = x)$?
+3. **Sufficient statistic**: Does $I(x_{t+1}; x_{\leq t} \mid h_t) = 0$?
+4. **Symmetry group**: Which group $G$ acts on the embedding space?
+5. **Quotient metric**: What metric on $S/G$ is induced?
+6. **Stationary distribution**: Does the chain converge?
+
+# Progress Log
+
+## 2026-03-31: Deep Review Complete
+
+- 7-agent review identified central gap: state is undefined
+- All Barbour connections are analogies, not homomorphisms
+- Geometric deep learning literature (Bronstein, Cohen, Clifford algebras) is the
+  missing formal bridge
+- Soft-deprecated Gray Cuber and Barbour to secondary/inspirational
+- Full report: `literature/reviews/deep_review_2026_03_31.md`
+
+# Domain Priorities
+
+| Domain | Priority | Role |
+|--------|----------|------|
+| Autoregression + Markov | PRIMARY | The thesis |
+| Geometric state space | PRIMARY | The formalization angle |
+| Barbour's complexity theory | SECONDARY | Inspirational -- analogies only |
+| Gray Cuber | SECONDARY | Pedagogical origin, historical record |

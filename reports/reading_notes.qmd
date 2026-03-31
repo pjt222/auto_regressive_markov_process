@@ -1,0 +1,619 @@
+---
+title: "Reading Notes: Autoregressive Markov Processes in Shape Space"
+author: "Philipp Thoss"
+date: last-modified
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Overview
+
+Compiled reading notes for the literature review supporting the research project
+"Autoregressive Markov Processes in Shape Space."
+
+Papers are organized by reading phase. For each paper, notes capture: summary,
+key claims, mathematical objects defined, relevance to the project thesis, and
+open questions.
+
+**Convergent thesis** (from deep review, 2026-03-31): *An autoregressive model
+whose state is defined as a point in a quotient embedding space (modulo some
+symmetry group) can preserve the Markov property under conditions that are
+formalizable and empirically testable.*
+
+# Phase A: Core Markov-AR Connection
+
+## 1. On the Markov Property of Neural Algorithmic Reasoning (2024) {#sec-bohde2024}
+
+**Authors**: Montgomery Bohde, Meng Liu, Alexandra Saxton, Shuiwang Ji (Texas A&M)
+**Venue**: ICLR 2024
+**arXiv**: 2403.04929
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+The paper addresses neural algorithmic reasoning -- training GNNs to execute
+classical algorithms step-by-step using the CLRS-30 benchmark. The standard
+encoder-processor-decoder paradigm concatenates the *previous step's hidden
+state* $\mathbf{h}_i^{(t-1)}$ with the current encoded input $\bar{\mathbf{x}}_i^{(t)}$
+before feeding it to the GNN processor. The authors observe that this
+**contradicts the Markov property** of algorithmic execution: at any step $t$,
+the current `hints` (intermediate algorithm state) contain all information needed
+to determine step $t+1$. Historical embeddings are unnecessary and introduce
+noise.
+
+They propose two architectures:
+
+1. **ForgetNet**: Simply removes the historical embedding concatenation.
+   The processor becomes $\{\mathbf{h}_i^{(t)}\} = f_{\text{GNN}}(\{\bar{\mathbf{x}}_i^{(t)}\}, \{\bar{\mathbf{e}}_{ij}^{(t)}\}, \bar{\mathbf{g}}^{(t)})$.
+   This improves generalization on 23/30 CLRS tasks.
+
+2. **G-ForgetNet**: Adds a learnable gate $\mathbf{g}_i^{(t)} = \sigma(\text{MLP}([\bar{\mathbf{x}}_i^{(t)}, \mathbf{h}_i^{(t-1)}]))$
+   that modulates the historical embedding via element-wise product
+   $\mathbf{g}_i^{(t)} \odot \mathbf{h}_i^{(t-1)}$. A regularization penalty
+   $\lambda \sum_i \|\mathbf{g}_i^{(t)}\|$ encourages the gate to close (converge to zero)
+   as training progresses. This achieves SOTA on 25/30 tasks (82.89% overall
+   vs. 75.98% for prior SOTA Triplet-GMPNN).
+
+### Key Claims
+
+1. **Algorithmic execution is Markov**: For CLRS-30 tasks, the current state
+   (hints at step $t$) is a sufficient statistic for the next state. This is
+   true *by construction* because CLRS-30 hints encode the full algorithm state.
+
+2. **Historical embeddings violate the Markov property**: Concatenating
+   $\mathbf{h}_i^{(t-1)}$ introduces information about past states that is
+   redundant given the current hints, and this redundancy adds noise that
+   hurts OOD generalization.
+
+3. **Respecting the Markov property improves generalization**: ForgetNet's
+   improvements (23/30 tasks) demonstrate that aligning architecture with
+   the task's causal structure matters empirically.
+
+4. **The gate learns to close**: In G-ForgetNet, the gating norm declines
+   toward zero during training (Figure 5), empirically confirming that the
+   model learns to discard historical information as its current-step
+   predictions improve.
+
+### Mathematical Objects Defined
+
+- **State at step $t$**: $\{x_i^{(t)}\}, \{e_{ij}^{(t)}\}, g^{(t)}$ -- node, edge,
+  graph features (the `hints`). This is a **fully specified** state because
+  CLRS-30 provides complete algorithm state as hints.
+- **Transition**: One GNN processor pass $f_{\text{GNN}}$ maps current encoded
+  state to next hidden state.
+- **Baseline processor** (Eq. 2): $z_i^{(t)} = [\bar{x}_i^{(t)}, h_i^{(t-1)}]$,
+  $\{h_i^{(t)}\} = f_{\text{GNN}}(\{z_i^{(t)}\}, \{\bar{e}_{ij}^{(t)}\}, \bar{g}^{(t)})$
+- **ForgetNet processor** (Eq. 3): $\{h_i^{(t)}\} = f_{\text{GNN}}(\{\bar{x}_i^{(t)}\}, \{\bar{e}_{ij}^{(t)}\}, \bar{g}^{(t)})$
+- **G-ForgetNet processor** (Eq. 4-5): Gate modulated concatenation with
+  L1 regularization on gate magnitude.
+
+### Relevance to Our Project
+
+**HIGH RELEVANCE** -- but with critical caveats.
+
+**What transfers directly:**
+
+- The paper provides a concrete, empirically validated example of the principle
+  that *respecting the Markov property in architecture design improves
+  generalization*. This is the core intuition of our project.
+- The G-ForgetNet gating mechanism offers a design pattern: use gates to
+  *gradually enforce* Markovianity during training rather than imposing it
+  from the start.
+- The regularization term $\lambda \sum_i \|g_i^{(t)}\|$ is a *computable criterion*
+  for measuring how Markovian a model's behavior is. This partially addresses
+  Formal Gap 6 from the deep review.
+
+**What does NOT transfer:**
+
+- **The Markov property holds by construction in CLRS-30** because hints
+  encode the *complete* algorithm state. In autoregressive language models,
+  the current token is NOT a sufficient statistic -- the entire context window
+  is needed. The paper's setting is fundamentally different from ours.
+- **The state is given, not learned**: In CLRS-30, the state (hints) is
+  provided as supervision. In our setting, we need to *define* and *learn*
+  the state representation. The paper does not address state discovery.
+- **The tasks are deterministic algorithms**: CLRS-30 algorithms have
+  deterministic transitions. Autoregressive language generation is stochastic.
+  The Markov property has different implications in deterministic vs.
+  stochastic settings.
+
+### Key Insight for Our Framework
+
+The paper's key contribution to our project is the **negative result**: using
+historical embeddings when the task is Markov *hurts* performance. This
+implies the converse question: **if we designed a state representation that IS
+a sufficient statistic, would explicitly enforcing Markovianity in the
+architecture improve autoregressive generation?**
+
+This reframes our central question from "does AR preserve Markov?" to the
+more productive: "can we *design* AR architectures that enforce Markov
+structure, and does this help?"
+
+### Open Questions
+
+1. Can the G-ForgetNet gating pattern be adapted for transformer architectures
+   (where the "historical embedding" is the KV-cache)?
+2. What is the analogue of "complete hints" for language generation? Is there
+   a representation where the current state IS sufficient?
+3. The gate norm declining to zero is an empirical Markov preservation metric.
+   Can this be formalized as a training objective for our framework?
+4. How does the gating behavior change with sequence length? Does the gate
+   stay closed for long sequences (where Markovianity is hardest to maintain)?
+
+## 2. Toward a Theory of Tokenization in LLMs (2024) {#sec-rajaraman2024}
+
+**Authors**: Nived Rajaraman, Jiantao Jiao, Kannan Ramchandran (UC Berkeley)
+**Venue**: NeurIPS 2025 (accepted as "An Analysis of Tokenization: Transformers under Markov data")
+**arXiv**: 2404.08335v2
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+This paper provides a **theoretical framework for understanding why tokenization
+helps transformers learn Markov processes**. The core finding is surprising and
+directly relevant to our project:
+
+**Without tokenization**, transformers trained on data from $k$th-order Markov
+processes ($k > 1$) empirically **fail to learn the Markov kernel** -- they get
+stuck predicting according to a unigram model (the stationary distribution $\pi$).
+This holds across a wide range of hyperparameters.
+
+**With tokenization** (BPE, LZW, or even a toy all-$k$-grams tokenizer),
+transformers break through this barrier and achieve near-optimal cross-entropy
+loss -- **even when the transformer itself still learns a unigram model over
+tokens**. The tokenizer absorbs the Markov structure, allowing a simpler model
+to succeed.
+
+### Key Theorems
+
+**Theorem 2.1** (Unigram model gap): For any ergodic data source with stationary
+distribution $\pi$, the optimal model achieves $H(P)$, but any unigram model
+$Q \in \mathcal{Q}_{1\text{-gram}}$ has loss $\geq mH(\pi)$. The ratio
+$mH(\pi)/H(P)$ can be **arbitrarily large** for switching Markov chains as
+$p, q \to 0$.
+
+This means character-level transformers that learn unigram models incur a
+potentially unbounded loss penalty on Markov data.
+
+**Theorem 4.1** (Main result -- tokenization enables near-optimal unigram
+models): For a Markov data source satisfying Assumption 4.2 (ergodic, with
+$\min_{a,a'} P(a'|a) \geq \delta > 0$), there exists a tokenizer with at most
+$d$ tokens such that a unigram model over tokens achieves:
+
+$$\min_{Q \in \mathcal{Q}_{1\text{-gram}}} \mathcal{L}(Q \circ \text{enc}(\cdot)) \leq \frac{\min_Q \mathcal{L}(Q)}{1 - \varepsilon}$$
+
+where $\varepsilon = \log(1/\delta) / 0.99\log(d)$. As dictionary size $d \to \infty$,
+the loss approaches optimal.
+
+**Theorem 4.5** (LZW is near-optimal): The LZW tokenizer achieves the bound in
+Theorem 4.1 when trained on $\widetilde{O}(d)$ characters.
+
+**Theorem 4.7** (Sequential BPE is 2-approximate): A sequential variant of BPE
+achieves $(2+\varepsilon)\min_Q \mathcal{L}(Q) + \epsilon$ with dictionary size $d$,
+trained on $\Theta(d^2)$ characters.
+
+### The Mechanism: Why Tokenization Works
+
+The key insight (Section 4, "Key insight" paragraph): Tokenization works by
+**absorbing sequential dependencies into the token boundaries**. If characters
+$a$ and $b$ frequently co-occur (high $P(b|a)$), a good tokenizer merges them
+into a single token $ab$. The resulting token sequence is **closer to i.i.d.**
+than the original character sequence, so even a unigram model over tokens
+captures the original Markov dependencies.
+
+Formally, for the toy tokenizer (all length-$r$ substrings as tokens), the
+cross-entropy of a unigram model decomposes as (Eq. 2):
+
+$$\mathcal{L}_m(Q \circ \text{enc}(\cdot)) \approx H(P)\left(1 - \frac{1}{\log_2(d)}\right) + \frac{mH(\pi)}{\log_2(d)}$$
+
+As $d = 2^r$ grows (longer tokens), the first term dominates and the loss
+approaches $H(P)$.
+
+### Mathematical Objects Defined
+
+- **Data generating process**: $k$th-order Markov process $P$ on alphabet $\mathcal{A}$
+  with transition kernel $P(\cdot | \cdot)$ and stationary distribution $\pi$
+- **Tokenizer**: Tuple $\mathcal{T} = (\text{Dict}, \text{DS}, \text{enc}(\cdot), \text{dec}(\cdot))$
+  where Dict is the token set, DS is auxiliary data structure, enc maps strings to
+  token sequences, dec inverts
+- **End-to-end model**: $Q_{\text{end}} = Q \circ \text{enc}(\cdot)$ -- composition of
+  likelihood model $Q$ over tokens with encoding function
+- **Cross-entropy loss**: $\mathcal{L}_m(Q_{\text{end}}) = -\mathbb{E}[\log Q(\text{enc}(\mathbf{s}))]$
+- **Assumption 4.2**: Ergodic Markov source with $\min_{a,a'} P(a'|a) \geq \delta > 0$
+  (every transition has positive probability)
+- **Conjecture 1**: The $\delta$-dependence in Theorem 4.1 can be relaxed to
+  $\varepsilon = \log(mH(\pi)/H(P))/0.99\log(d)$, eliminating Assumption 4.2
+
+### Relevance to Our Project
+
+**CRITICAL RELEVANCE** -- this paper is the strongest empirical and theoretical
+anchor for our framework.
+
+**What transfers directly:**
+
+1. **Tokenization as state-space expansion**: Tokenization converts a $k$th-order
+   Markov process on characters into a (approximately) 1st-order process on tokens.
+   Each token encodes a length-$r$ substring, effectively expanding the "state" to
+   include $r$ characters of history. This is precisely the state-space expansion
+   that our Markovian reviewer identified as "Reading B" -- the AR($k$) case reduced
+   to first-order by working in $k$-tuple space.
+
+2. **The unigram model paradox**: Even with tokenization, transformers learn
+   unigram models over tokens (Figure 4). This means the sequential dependencies
+   are captured *by the tokenizer*, not by the transformer's attention mechanism.
+   This has profound implications: if the transformer is essentially a unigram
+   predictor, the Markov property is trivially satisfied at the token level.
+
+3. **Dictionary size controls effective Markov order**: Theorem 4.1 shows that
+   larger dictionaries (longer tokens) better approximate the optimal model. In
+   our framework, this means: the "state dimension" is controlled by the
+   tokenization granularity. This partially answers our open question about what
+   determines the effective Markov order.
+
+**What does NOT transfer / requires extension:**
+
+1. **Ergodicity assumption** (Assumption 4.2): Requires $\delta > 0$ for all
+   transitions. Real language has many zero-probability transitions. The authors
+   conjecture (Conjecture 1) that this can be relaxed, but it's unproven.
+
+2. **Only $k$-gram models analyzed**: The paper studies unigram models on tokens,
+   not transformer attention patterns. The question of whether transformers with
+   attention can learn *beyond* what tokenization provides is not addressed.
+
+3. **No geometry**: The paper is purely information-theoretic. No geometric
+   structure on the token space. Our framework adds geometry to this picture --
+   the quotient space structure.
+
+4. **Discrete only**: The theory applies to discrete Markov processes. Our
+   framework envisions continuous embedding spaces. The bridge from discrete
+   tokens to continuous embeddings is not addressed.
+
+### Key Insight for Our Framework
+
+**Tokenization is a discrete form of state-space construction.** The tokenizer
+builds a state (the token) that absorbs local dependencies, making the process
+more Markovian at the token level. Our project's continuous embedding space
+can be seen as a *continuous generalization of tokenization*: instead of
+discrete tokens that pack $k$ characters of history, we want a continuous
+embedding $s_t$ that packs sufficient history to make the process Markovian.
+
+This reframes our central question: **Can we design a continuous "tokenizer"
+(i.e., an embedding function) such that the resulting process in embedding space
+is Markovian, and the embedding space has useful geometric structure?**
+
+The paper also reveals a tension: tokenization works *because* it makes the
+process more i.i.d. (unigram-like). But our framework wants Markov dynamics
+(not i.i.d.) in the embedding space. We need to be precise about what level
+of the hierarchy we're analyzing.
+
+### Open Questions
+
+1. Can Theorem 4.1 be extended to continuous state spaces? What is the
+   continuous analogue of "dictionary size"?
+2. If transformers are essentially unigram predictors at the token level, what
+   role does attention play? Is it only for in-context learning, not for
+   capturing Markov structure?
+3. The $\delta > 0$ requirement (Assumption 4.2) excludes deterministic
+   transitions. How does this interact with the CLRS-30 setting of Paper 1
+   where transitions ARE deterministic?
+4. Conjecture 1 proposes replacing $\delta$ with $mH(\pi)/H(P)$. If proven,
+   this would connect the tokenization theory to information-theoretic quantities
+   that might relate to our "complexity" concept.
+5. Can the tokenizer's dictionary structure be given a geometric interpretation?
+   Tokens that are "close" in meaning might correspond to nearby regions in
+   some embedding space -- connecting tokenization to our quotient space idea.
+
+## 3. Cascaded Text Generation with Markov Transformers (2020) {#sec-deng2020}
+
+**Authors**: Yuntian Deng, Alexander M. Rush (Harvard/Cornell)
+**Venue**: NeurIPS 2020
+**arXiv**: 2006.01112
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+This paper proposes a **Markov transformer** for parallel text generation, which
+explicitly limits attention to a fixed context window of size $M+1$ (the Markov
+order). The output is modeled as a conditional random field (CRF) where the
+$m$th-order model factors as:
+
+$$P^{(m)}(x_{1:L} \mid c; \theta) \propto \exp \sum_{l=1}^{L-m} f_l^{(m)}(x_{l:l+m}, c; \theta^{(m)})$$
+
+The key innovation is **cascaded decoding**: start with a 0th-order
+(non-autoregressive) model, then iteratively refine using 1st, 2nd, ..., $M$th
+order models, pruning unlikely candidates at each stage via max-marginals. This
+enables sub-linear parallel decoding time $O(MK^2 \log L)$ compared to
+$O(KL)$ for beam search.
+
+The **Markov transformer** is trained by inserting attention barriers every
+$M+1$ tokens, preventing self-attention from crossing barriers. At test time,
+different barrier placements parameterize CRFs of different orders. A single
+trained model serves all cascade levels.
+
+### Key Results
+
+- A 4th-order Markov transformer ($M=4$) achieves BLEU within 0.5 of a fully
+  autoregressive transformer on WMT14 En-De, at 2.4x speedup
+- Cascaded decoding reduces n-gram repetitions compared to non-autoregressive
+  models (Figure 3c)
+- The approach is competitive with beam search without knowledge distillation
+
+### Mathematical Objects Defined
+
+- **$m$th-order CRF**: $P^{(m)}(x_{1:L} | c) \propto \exp \sum_l f_l^{(m)}(x_{l:l+m})$
+  with log-potentials $f_l^{(m)}$ looking at $m+1$ consecutive words
+- **Max-marginals**: $\text{MM}_{\mathcal{X}}^{(m)}(x_{i:j})$ = maximum probability of
+  any sequence containing span $x_{i:j}$
+- **Attention barriers**: Hard constraints in self-attention mask, reset every
+  $M+1$ positions
+
+### Relevance to Our Project
+
+**MODERATE RELEVANCE** -- useful architectural insight but different goals.
+
+**What transfers:**
+
+1. **Explicit Markov order as architectural parameter**: The paper demonstrates
+   that you CAN impose a fixed Markov order on a transformer by restricting
+   attention. The order $M$ is a design choice, not emergent. This is a concrete
+   realization of the "state definition" our project needs -- here the state at
+   position $l$ is $x_{l:l+M}$ (the last $M$ tokens).
+
+2. **CRF formulation**: The CRF factorization provides a formal framework for
+   defining what "order-$m$ Markov" means for a neural text model. The log-potentials
+   $f_l^{(m)}$ are the transition "kernel" in our language.
+
+3. **Cascading from low to high order**: The idea of starting with independent
+   (0th order) and progressively adding dependencies mirrors a potential approach
+   for our framework -- start with a simple state definition and progressively
+   enrich it.
+
+**What does NOT transfer:**
+
+- The paper is about **decoding speed**, not about understanding Markov structure
+  in embeddings. The Markov restriction is imposed for computational efficiency,
+  not as a theoretical claim about the data.
+- The state is the raw token sequence $x_{l:l+M}$, not an embedding. There is
+  no geometric structure.
+- Limited to machine translation (conditional generation), not general AR.
+
+### Key Insight for Our Framework
+
+The Markov transformer shows that **imposing a hard Markov constraint on a
+transformer is simple (attention barriers) and works surprisingly well**. This
+suggests our project could start with a concrete experiment: take a standard
+transformer, impose attention barriers of varying width $M$, and measure how
+generation quality degrades as $M$ decreases. The critical $M$ where quality
+drops sharply reveals the "natural Markov order" of the task -- which connects
+to the tokenization theory from Paper 2.
+
+### Open Questions
+
+1. What is the relationship between the Markov order $M$ in this architecture
+   and the tokenization-induced Markov order from Rajaraman et al.?
+2. Can the cascading idea be adapted for continuous embeddings -- start with
+   a coarse (low-order) state and progressively refine?
+3. The attention barrier approach defines the state as raw tokens. What happens
+   if you define the state as the *hidden representation* at the barrier boundary?
+
+## 4. Neural Markov Jump Processes (2023) {#sec-seifner2023}
+
+**Authors**: Patrick Seifner, Ramses J. Sanchez (Lamarr Institute / University of Bonn)
+**Venue**: ICML 2023
+**arXiv**: 2305.19744
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+This paper introduces **NeuralMJP**, a variational inference method for **Markov
+Jump Processes (MJPs)** -- continuous-time stochastic processes on discrete state
+spaces. Given noisy, irregularly-sampled observations from an empirical process,
+NeuralMJP infers the hidden MJP's transition rates, initial distribution, and
+stationary distribution.
+
+The architecture uses:
+
+1. **ODE-RNN encoder**: Encodes observations $\mathbf{x}_{1:N}$ backwards in time
+   into a neural representation $\mathbf{h}_T \in \mathbb{R}^H$
+2. **Posterior MJP**: Data-dependent transition rates
+   $\mathbf{g}_\phi(t, \mathbf{x}_{1:N}) = \Psi_\phi(\mathbf{h}_T, t)$ define an
+   inhomogeneous MJP whose master equation is solved numerically
+3. **Prior MJP**: A generative model $\Phi_\theta : \mathbb{R}^p \to (\mathbb{R}^+)^{(K-1)K}$
+   maps random noise to transition rate matrices (like a GAN generator)
+4. **Training**: Maximize ELBO = reconstruction - KL(posterior || prior)
+
+### Key Mathematical Objects
+
+**MJP formalization** -- this is the most rigorous Markov formalization in our
+reading so far:
+
+- **State space**: Countable set $\mathcal{Z}$, with $|\mathcal{Z}| = K$ states
+- **Instantaneous transition rate** (Eq. 1):
+  $f(z|z', t) = \lim_{\Delta t \to 0} \frac{1}{\Delta t} p(z, t + \Delta t | z', t)$
+- **Master equation** (Eq. 2):
+  $\dot{p}(z,t) = \sum_{z' \neq z} (f(z|z',t)p(z',t) - f(z'|z,t)p(z,t))$
+- **Rate matrix** form: $\dot{\mathbf{p}}(t) = \mathbf{p}(t) \cdot \mathbf{F}$ where
+  $\mathbf{F} \in \mathbb{R}^{K \times K}$ is the rate matrix
+- **Solution**: $\mathbf{p}(t) = \mathbf{p}(0) \cdot \exp(\mathbf{F}t)$
+- **Relaxation times**: Given by eigenvalues $\lambda_i$ of $\mathbf{F}$; longest
+  time scale is $\text{Re}(\lambda_2)^{-1}$
+- **Stationary distribution**: $\mathbf{p}^*(t)$ in the long-time limit
+- **Mean first-passage time**: $\tau_{zz'}$ -- how long to reach $z'$ from $z$
+
+### Relevance to Our Project
+
+**MODERATE-HIGH RELEVANCE** -- provides the continuous-time formalization we need.
+
+**What transfers directly:**
+
+1. **The master equation as transition kernel**: The MJP master equation (Eq. 2)
+   is precisely the kind of formal transition kernel our project needs to define.
+   For our framework, we could define: the embedding at time $t$ evolves according
+   to a master equation with neural-parameterized transition rates. This would
+   give a continuous-time version of the discrete AR steps.
+
+2. **Rate matrix = our transition kernel**: The rate matrix $\mathbf{F}$ with
+   entries $f(z|z')$ is the mathematical object our Markovian reviewer said was
+   missing (Formal Gap 2: "no transition kernel defined"). NeuralMJP shows how
+   to parameterize this with neural networks and learn it from data.
+
+3. **Relaxation times and mixing**: The eigenvalue analysis of $\mathbf{F}$
+   (Section 3, p.3) directly addresses the mixing time question from the deep
+   review. For our framework: the relaxation time of the embedding-space Markov
+   process determines how quickly the model "forgets" its initial conditions
+   during generation.
+
+4. **Stationary distribution exists and is computable**: If our embedding-space
+   process has a rate matrix, the stationary distribution
+   $\pi = \lim_{t \to \infty} \mathbf{p}(t)$ is well-defined. This addresses
+   Formal Gap 4 from the deep review.
+
+5. **Variational inference for hidden Markov structure**: The ELBO framework
+   (Eq. 5) shows how to learn a hidden Markov process from noisy observations.
+   In our setting, the "observations" are tokens and the "hidden process" is the
+   embedding-space Markov chain.
+
+**What does NOT transfer:**
+
+- **Discrete state space**: NeuralMJP uses $K$ discrete states. Our embedding
+  space is continuous ($\mathbb{R}^n$). Extension to continuous state spaces
+  requires replacing the rate matrix with a transition kernel density, and the
+  master equation with a Fokker-Planck equation. This is a known mathematical
+  extension but non-trivial computationally.
+- **Continuous time**: AR generation is discrete-time (step 1, 2, 3...). The
+  continuous-time formulation is elegant but may be unnecessary overhead for
+  our setting. However, it provides a natural framework for variable-length
+  generation.
+- **Small state spaces**: Experiments use $K = 3$ to $6$ states. Embedding
+  spaces are thousands of dimensions. Scalability is unclear.
+
+### Key Insight for Our Framework
+
+NeuralMJP provides the **template for formalizing our transition kernel**. The
+key adaptation needed: replace the discrete rate matrix $\mathbf{F}$ with a
+continuous transition operator on $\mathbb{R}^n$. Two options:
+
+1. **Discretize**: Cluster the embedding space into $K$ regions and define an
+   MJP on the clusters. This recovers the NeuralMJP setup directly.
+2. **Go continuous**: Replace the master equation with a Fokker-Planck equation
+   or stochastic differential equation (SDE) on $\mathbb{R}^n$. This connects
+   to the diffusion model literature (Paper 14, Hoogeboom et al.).
+
+Option 1 is more immediately tractable. Option 2 is more theoretically
+satisfying and connects to Barbour's continuous shape space.
+
+### Connection to Other Papers
+
+- **Paper 1** (Bohde): ForgetNet removes history; NeuralMJP shows the formal
+  framework where "current state determines future" is the master equation
+- **Paper 2** (Rajaraman): Tokenization creates discrete states from continuous
+  characters; NeuralMJP shows how to do inference on discrete Markov states --
+  potential bridge between the two
+- **Paper 3** (Deng): Markov transformer imposes order $M$; NeuralMJP shows
+  how the rate matrix captures all transition dynamics without explicit order
+
+### Open Questions
+
+1. Can the NeuralMJP framework be extended to continuous state spaces
+   ($\mathcal{Z} = \mathbb{R}^n$) using SDEs instead of master equations?
+2. What is the relationship between the rate matrix eigenvalues and the
+   "effective Markov order" from the tokenization theory?
+3. Could the ODE-RNN encoder be replaced by a transformer encoder to handle
+   longer sequences in the embedding-space Markov inference problem?
+4. The prior model uses a GAN-like generator for rate matrices. Could this be
+   adapted to generate transition kernels for our embedding-space process?
+
+# Phase B: State Space Models and Memory
+
+## 5. StableSSM: Alleviating the Curse of Memory (2023)
+
+*Reading status: not started*
+
+## 6. Reinforcement Learning with Fast and Forgetful Memory (2023)
+
+*Reading status: not started*
+
+## 7. Mamba: Linear-Time Sequence Modeling with Selective State Spaces (2023)
+
+*Reading status: not started*
+
+## 8. Latent State Models of Training Dynamics (2023)
+
+*Reading status: not started*
+
+# Phase C: Geometric Deep Learning
+
+## 9. Geometric Deep Learning (Bronstein et al. 2021)
+
+*Reading status: not started*
+
+## 10. Group Equivariant Convolutional Networks (Cohen & Welling 2016)
+
+*Reading status: not started*
+
+## 11. Gauge Equivariant Convolutional Networks (Cohen et al. 2019)
+
+*Reading status: not started*
+
+## 12. Clifford Neural Layers for PDE Modeling (Ruhe et al. 2023)
+
+*Reading status: not started*
+
+## 13. Geometric Algebra Transformers (Brehmer et al. 2023)
+
+*Reading status: not started*
+
+# Phase D: Extended Autoregressive Models
+
+## 14. Autoregressive Diffusion Models (2021)
+
+*Reading status: not started*
+
+## 15. MEGABYTE: Million-byte Sequences (2023)
+
+*Reading status: not started*
+
+## 16. Continuous Autoregressive Models with Noise Augmentation (2024)
+
+*Reading status: not started*
+
+## 17. Beyond Autoregression: Self-Distillation Through Time (2024)
+
+*Reading status: not started*
+
+## 18. Autoregressive Image Generation without Vector Quantization (2024)
+
+*Reading status: not started*
+
+# Phase E: Foundations and Secondary
+
+## 19. Spectral Algorithm for Learning HMMs (Hsu et al. 2012)
+
+*Reading status: not started*
+
+## 20. Are Transformers Effective for Time Series Forecasting? (Zeng et al. 2023)
+
+*Reading status: not started*
+
+## 21. TRACE: Probabilistic Reasoning for Controllable Generation (2025)
+
+*Reading status: not started*
+
+## 22-25. Remaining HMM/AR Papers
+
+*Reading status: not started*
+
+## 26-28. Barbour Papers (Secondary)
+
+*Reading status: not started*
+
+## 29-30. Remaining Geometric Papers
+
+*Reading status: not started*

@@ -67,5 +67,13 @@ literature/**/*.pdf
 # Keep empty directories
 !.gitkeep
 
+# Quarto output
+_output/
+*_files/
+*.tex
+!jmlr-preamble.tex
+!jmlr-title.tex
+.quarto/
+
 # Claude Code specific
 .claude/settings.local.json

@@ -1,91 +1,77 @@
 # Next Session Starting Point
 
-## Session Summary (2025-01-17)
+## Session Summary (2026-03-31)
 
-### Previous Session Accomplishments (2025-01-16)
-1. ✅ Set up project structure with organized literature directories
-2. ✅ Initialized git repository with proper .gitignore
-3. ✅ Completed comprehensive literature searches across all four areas
-4. ✅ Created initial synthesis connecting all four research areas
-5. ✅ Identified key research questions and emerging framework
+### Deep Review Completed
+A 7-agent, 3-phase deep review was conducted:
+- **Phase 1**: 4 domain experts (markovian, theoretical-researcher, senior-researcher, physicist) reviewed in parallel
+- **Phase 2**: Synoptic-mind team (adaptic + contemplative) formed a gestalt
+- **Phase 3**: Strategy team produced a prioritized action plan
 
-### Current Session Accomplishments (2025-01-17)
-1. ✅ Created paper access instructions at `literature/markov_processes/papers/README.md`
-2. ✅ Set up reading notes structure at `literature/markov_processes/reading_notes/`
-3. ✅ Created detailed template for first paper: "Toward a Theory of Tokenization in LLMs"
-4. ✅ Updated literature README with links to reading notes
+Full reports:
+- `literature/reviews/deep_review_2026_03_31.md`
+- `literature/reviews/synoptic_integration.md`
 
-### Current Project State
-- **Phase**: Literature Review (ready for deep reading)
-- **Git**: 3 commits (latest: "Add next session starting point documentation")
-- **Key Finding**: Tokenization enables higher-order Markov behavior in transformers
-- **Framework**: Autoregressive Markov Processes in Shape Space
-- **Next Paper**: "Toward a Theory of Tokenization in LLMs" (2024)
+### Infrastructure Set Up
+- Quarto configured (`_quarto.yml`, dual HTML/PDF)
+- BibTeX bibliography created (`references.bib`, 33 papers + 4 books)
+- 31 papers downloaded from arXiv (all verified > 0 bytes)
+- Reading notes infrastructure ready (`reports/reading_notes.qmd`)
+- Framework progress tracker created (`reports/framework_progress.qmd`)
+- Secondary domains soft-deprecated with STATUS.md files
+
+### Key Findings
+1. **Central gap**: The state is undefined. All 4 reviewers independently identified this.
+2. **Convergent thesis**: AR model in quotient embedding space can preserve Markov property under formalizable conditions
+3. **Load-bearing**: Autoregression+Markov (thesis) and geometric state space (formalization)
+4. **Secondary**: Barbour (inspirational analogies), Gray Cuber (historical, superseded by geometric deep learning)
 
 ## Next Session Priorities
 
-### 1. Deep Reading Phase - START HERE
-**First Paper**: "Toward a Theory of Tokenization in LLMs" (2024)
-- Access at: https://hf.co/papers/2404.08335
-- Notes template ready at: `literature/markov_processes/reading_notes/2024_tokenization_theory_llms.md`
-- Key focus: How tokenization enables k-th order Markov processes
+### 1. Begin Deep Reading -- Phase A (Core Markov-AR)
+**Start with**: "On the Markov Property of Neural Algorithmic Reasoning" (2024)
+- PDF at: `literature/markov_processes/papers/2024_Markov_Property_Neural_Algorithmic_Reasoning.pdf`
+- Focus: Under what conditions does their Markov preservation result apply to autoregressive generation?
+- Fill in reading notes in `reports/reading_notes.qmd` Section 1
 
-### 2. Continue Reading Order
-Following papers as per `literature/markov_processes/key_papers_summary.md`:
-1. ✅ Template ready: Tokenization Theory
-2. Cascaded Text Generation with Markov Transformers (2020)
-3. On the Markov Property of Neural Algorithmic Reasoning (2024)
-4. Autoregressive Diffusion Models (2021)
-5. StableSSM: Alleviating the Curse of Memory (2023)
+**Then**: "Toward a Theory of Tokenization in LLMs" (2024)
+- PDF at: `literature/markov_processes/papers/2024_Toward_Theory_Tokenization_LLMs.pdf`
+- Focus: How does tokenization control Markov order? What replaces it in continuous embeddings?
 
-### 3. Mathematical Formalization
-After reading first 2-3 papers:
-- Define state space using Barbour's shape dynamics
-- Formalize autoregressive transition operators
-- Prove conditions for Markov property preservation
-- Connect tokenization to complexity measures
+### 2. Reading Order (all 5 phases)
+See `reports/reading_notes.qmd` for the full plan:
+- Phase A: Core Markov-AR (4 papers)
+- Phase B: State space models and memory (4 papers)
+- Phase C: Geometric deep learning (5 papers)
+- Phase D: Extended AR models (5 papers)
+- Phase E: Foundations and secondary (13 papers)
 
-### 4. Create Proof-of-Concept Plan
-After theoretical understanding:
-- Simple autoregressive model with geometric constraints
-- Complexity tracking during generation
-- Compare different tokenization strategies
+### 3. After First 2-3 Papers
+- Create `framework/state_definition.md` -- define s_t mathematically
+- Begin `framework/formalization.md` -- state the conjecture
 
 ## Quick Start Commands
 ```bash
-# Navigate to project
 cd /mnt/d/dev/p/auto_regressive_markov_process
 
-# Check project status
-git status
-git log --oneline
+# Check paper inventory
+find literature -name "*.pdf" | wc -l   # Should be 31
 
-# View reading notes structure
-ls -la literature/markov_processes/reading_notes/
+# Render reading notes
+quarto render reports/reading_notes.qmd --to html
 
-# Open first paper's notes template
-cat literature/markov_processes/reading_notes/2024_tokenization_theory_llms.md
+# Render framework progress
+quarto render reports/framework_progress.qmd --to html
 
-# View paper access instructions
-cat literature/markov_processes/papers/README.md
-
-# View synthesis
-cat literature/reviews/initial_synthesis.md
+# View the deep review
+cat literature/reviews/deep_review_2026_03_31.md
 ```
 
-## Key Files to Review
-1. `literature/markov_processes/reading_notes/2024_tokenization_theory_llms.md` - First paper template
-2. `literature/markov_processes/papers/README.md` - How to access papers
-3. `literature/markov_processes/key_papers_summary.md` - Full reading list
-4. `literature/reviews/initial_synthesis.md` - Current theoretical understanding
-5. `initial_scribbles.md` - Original vision
-6. `CLAUDE.md` - Project guidance
-
-## Reading Notes Workflow
-1. Access paper via Hugging Face link
-2. Fill in the reading notes template while reading
-3. Focus on connections to Markov processes and shape dynamics
-4. Note any implementation ideas or mathematical insights
-5. Update progress in `reading_notes/README.md`
-
-The project is perfectly set up for deep literature review! 📚
+## Paper Count by Area
+| Area | Papers | Status |
+|------|--------|--------|
+| Markov processes | 17 | Downloaded |
+| Autoregression | 5 | Downloaded |
+| Geometric computation | 6 | Downloaded |
+| Complexity theory | 3 | Downloaded |
+| **Total** | **31** | **All retrieved** |
