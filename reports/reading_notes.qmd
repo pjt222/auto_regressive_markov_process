@@ -691,9 +691,82 @@ trade-off but with a stability constraint.
 4. How does the memory function relate to the mixing time from Paper 4
    (NeuralMJP)? Both characterize "how fast the system forgets."
 
-## 6. Reinforcement Learning with Fast and Forgetful Memory (2023)
+## 6. Reinforcement Learning with Fast and Forgetful Memory (2023) {#sec-morad2023}
 
-*Reading status: not started*
+**Authors**: Steven Morad, Ryan Kortvelesy, Stephan Liwicki, Amanda Prorok
+**Venue**: ICML 2023
+**arXiv**: 2310.04128
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+FFM introduces a memory mechanism for RL with a complex-valued state
+$S_n = \gamma^t \cdot S_{n-1} + B_n \cdot x_n$ where $\gamma = \exp(-\alpha) \cdot \exp(-i\omega)$.
+Learned decay rates $\alpha$ and oscillation frequencies $\omega$ define what
+history is kept and at what temporal scale. The state lives in $\mathbb{C}^{m \times c}$
+-- a complex-valued matrix, not a flat vector. Training uses closed-form parallel
+computation ($O(\log n)$ time); inference is $O(1)$ recurrent.
+
+### Key Claims
+
+1. **Selective forgetting is the critical inductive bias**, not accumulation.
+   The ablation FFM-ND (no decay) is the worst-performing variant, confirming
+   forgetting is essential.
+2. Each state dimension has known **trace durability** $t_\alpha = \log(\beta)/(\alpha \cdot 1_c)$
+   and **contextual period** $t_\omega = 2\pi / (1_m \cdot \omega)$ -- interpretable
+   temporal scales.
+3. Parallel/recurrent duality: $O(\log n)$ training, $O(1)$ inference -- the
+   exact property needed for AR generation.
+
+### Mathematical Objects Defined
+
+- **State**: $S_n \in \mathbb{C}^{m \times c}$ with complex decay $\gamma = e^{-\alpha} \cdot e^{-i\omega}$
+- **Decay rates**: $\alpha \in \mathbb{R}^{m \times c}_+$ (learned, time-homogeneous)
+- **Oscillation frequencies**: $\omega \in \mathbb{R}^{m \times c}$ (learned, time-homogeneous)
+
+### Relevance to Our Project
+
+**MODERATE-HIGH RELEVANCE** -- provides a critical contrast with Mamba.
+
+**Key contrast**: FFM uses **time-homogeneous** decay ($\alpha, \omega$ are fixed
+learned parameters, independent of input). Mamba uses **input-dependent**
+selection ($\mathbf{B}, \mathbf{C}, \Delta$ are functions of $x_t$).
+
+This matters for our framework: time-homogeneous decay implies a **stationary
+Markov transition kernel**; input-dependent selection breaks stationarity. If
+our quotient space complexity measure is stationary, FFM's approach is more
+compatible with classical Markov chain theory (stationary distribution,
+mixing times, ergodicity).
+
+**Sufficiency by forgetting**: FFM operationalizes the sufficient statistic
+condition constructively -- the state is sufficient because irrelevant history
+*decays away*. This directly answers: sufficiency is achieved by **controlled
+forgetting**, not by accumulating everything.
+
+**Complex state space**: The use of $\mathbb{C}^{m \times c}$ connects to the
+physicist reviewer's point about complex-valued networks and the division
+algebra hierarchy. FFM shows complex states work well for capturing temporal
+oscillations.
+
+### Key Insight for Our Framework
+
+FFM presents a design choice for our state definition: **stationary vs.
+non-stationary transitions**. Mamba's input-dependent $\Delta_t$ is more
+expressive but breaks classical Markov theory. FFM's fixed $\alpha, \omega$ is
+less expressive but preserves stationarity. Our geometric structure (quotient
+space) might provide a middle ground: the transition kernel is structured by
+the geometry but adapted by the input within that structure.
+
+### Open Questions
+
+1. Can FFM's interpretable temporal scales ($t_\alpha$, $t_\omega$) be mapped
+   onto geometric features -- tracking which complexity scales persist across
+   AR steps?
+2. What happens if FFM's flat $\mathbb{R}^d$ observation space is replaced with
+   non-Euclidean / shape-space geometry?
+3. Is there an optimal trade-off between stationary (FFM) and non-stationary
+   (Mamba) transitions for preserving the Markov property?
 
 ## 7. Mamba: Linear-Time Sequence Modeling with Selective State Spaces (2023) {#sec-gu2023}
 
@@ -849,9 +922,121 @@ structure on the state space**.
 5. Mamba uses real-valued states for text. Prior SSMs used complex numbers for
    audio/vision. Is there a principled choice connected to the data's symmetry?
 
-## 8. Latent State Models of Training Dynamics (2023)
+## 8. Latent State Models of Training Dynamics (2023) {#sec-hu2023}
 
-*Reading status: not started*
+**Authors**: Michael Y. Hu, Angelica Chen, Naomi Saphra, Kyunghyun Cho
+**Venue**: arXiv preprint
+**arXiv**: 2308.09543
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+This paper fits Gaussian HMMs over z-score-normalized weight metric sequences
+(L1/L2 norms, singular value statistics, etc.) from $N$ parallel training runs
+with different random seeds. The inferred latent state sequence forms a "training
+map" -- a discrete Markov chain over optimizer phases. They identify "detour
+states" (visited only by slow runs, positive regression coefficient for
+convergence time) and show these appear when training is sensitive to random
+seed (grokking) and disappear when training is stabilized.
+
+### Key Claims
+
+1. Training dynamics of neural networks can be modeled as a **first-order
+   Markov chain** at the right abstraction level (aggregated weight metrics).
+2. **Detour states** -- phases visited only by poorly performing runs -- explain
+   variance in training outcomes across seeds.
+3. HMM model selection via BIC identifies the right number of training phases.
+
+### Mathematical Objects Defined
+
+- **HMM**: Gaussian emissions $\mathcal{N}(\mu_k, \Sigma_k)$, transition matrix
+  $P(s_t | s_{t-1})$, Baum-Welch fitting, BIC model selection
+- **Unigram featurization**: $\hat{P}(s=k) = \text{count}(k)/T$ as trajectory
+  feature vector
+- **Trajectory dissimilarity**: expected Wasserstein distance between empirical
+  state distributions across runs
+- **Feature importance**: $|\partial \log p(s_t=k | \tilde{z}_{1:t}) / \partial \tilde{z}_t|$
+  for annotating transition drivers
+
+### Relevance to Our Project
+
+**LOW-MODERATE RELEVANCE** -- conceptually interesting but methodologically distant.
+
+**What transfers**: If even the optimizer parameter-update process is
+approximately first-order Markov at the right abstraction level (aggregated
+metrics), then the AR inference process -- where parameters are fixed and the
+recurrent hidden state evolves -- is a **more natural target** for a Markov
+assumption. This validates the principle that Markov models can describe
+complex neural network processes when the state is defined at the right level.
+
+The HMM-over-metrics design pattern is reusable: we could fit an HMM to
+embedding trajectories during AR generation to empirically test whether the
+process is Markov.
+
+**What doesn't transfer**: Their ensemble is $N$ parallel training runs with
+different seeds. In our single-run AR setting, the ensemble would need to come
+from multiple prompts/contexts -- a methodological gap. Also, the paper studies
+training dynamics, not inference dynamics.
+
+### Key Insight for Our Framework
+
+The "detour state" concept may have an analogue in our shape space: **geometric
+regions the AR chain visits before settling**, which slow down convergence to a
+correct answer. If generation quality correlates with avoiding detour states in
+embedding space, this would connect Markov chain mixing times to generation
+quality -- a testable prediction.
+
+### Open Questions
+
+1. Can we apply the HMM-over-metrics approach to AR generation trajectories
+   (fit HMM to embedding norms, attention patterns, etc.) to test Markovianity?
+2. Do "detour states" in generation correspond to repetitive or low-quality
+   output modes?
+
+## Phase B Summary {#sec-phaseB-summary}
+
+### Key Findings
+
+Phase B reveals the **fundamental constraints on our state definition**:
+
+1. **Curse of memory** (StableSSM): A fixed-dimensional SSM state can only
+   stably approximate targets with exponentially decaying memory unless stable
+   reparameterization is used. With reparameterization, any decay rate is
+   achievable. **Implication**: our state $s_t$ must use stable
+   reparameterization (e.g., $f(w) = -1/(aw^2+b)$).
+
+2. **Selection = compression** (Mamba): The fundamental problem is compressing
+   context into a finite state. Mamba's selective SSM does this with
+   input-dependent transitions. **Our state candidate**: $s_t = h_t \in \mathbb{R}^{DN}$
+   from a selective SSM with structured (geometric) transition matrix.
+
+3. **Stationary vs. non-stationary trade-off** (FFM vs. Mamba): FFM's
+   time-homogeneous decay preserves classical Markov theory (stationary
+   distribution, mixing times). Mamba's input-dependent selection is more
+   expressive but breaks stationarity. Our geometric structure could mediate:
+   transitions constrained to a Lie group (stationary structure) but selected
+   by input (non-stationary within the structure).
+
+4. **Markovianity is approximate, not exact** (all papers): No finite-dimensional
+   state is an exact sufficient statistic for tasks with long-range dependencies.
+   We must formalize "approximately Markov" with quantifiable error bounds.
+
+### Emerging State Definition (preliminary)
+
+Based on Phases A+B, our state candidate is:
+
+$$s_t = h_t \in \mathbb{R}^{DN}, \quad h_t = \overline{\mathbf{A}}_t h_{t-1} + \overline{\mathbf{B}}_t x_t$$
+
+where $\overline{\mathbf{A}}_t = \exp(\Delta_t \mathbf{A})$ with $\mathbf{A}$ constrained
+to a Lie algebra $\mathfrak{g}$ (e.g., $\mathfrak{so}(N)$ for rotations). This gives:
+
+- **Fixed dimension**: $DN$ (from Mamba)
+- **Geometric structure**: $\exp(\Delta_t \mathbf{A}) \in G$ where $G = \exp(\mathfrak{g})$ is a Lie group
+- **Stable reparameterization**: $\Delta_t = \tau_\Delta(s_\Delta(x_t))$ with softplus (from Mamba/StableSSM)
+- **Content-dependent selection**: $\mathbf{B}_t, \mathbf{C}_t$ depend on $x_t$ (from Mamba)
+
+This is a hypothesis to be tested, not a conclusion. See issue #17.
 
 # Phase C: Geometric Deep Learning
 
