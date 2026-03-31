@@ -127,6 +127,21 @@ The full Clifford algebra $Cl(D, 0)$ has dimension $2^D$ — computationally int
 
 **Practical recommendation.** For initial experiments, Option B (factored $Cl(3,0)^{D/3}$) gives quaternion arithmetic per block — well-studied, numerically stable, and $O(D)$ in parameters. Option A is preferable when the full $SO(D)$ orbit structure matters and $D \leq 64$.
 
+**Remark (Discrete spinor parameterizations).** The continuous $\text{Spin}(3)$
+group used in each QuatBlock contains discrete polyhedral subgroups as special
+cases: the binary tetrahedral group $2T$ (order 24), binary octahedral group
+$2O$ (order 48), and binary icosahedral group $2I$ (order 120)
+[@dechant2014clifford]. These are the only finite subgroups of $SU(2)$ beyond
+cyclic and binary dihedral groups (ADE classification). If one restricts the
+learned spinors $u_t$ to one of these discrete groups, the resulting model has
+built-in polyhedral symmetry as an inductive bias — a stronger constraint than
+continuous $\text{Spin}(3)$ but potentially more interpretable. The binary
+icosahedral group $2I$ is the largest and connects to $E_8$ through spinor
+induction: the $H_3$ root system in 3D generates the $H_4$ root system
+(600-cell) in 4D under the spinor map [@dechant2016birth]. Whether discrete
+polyhedral spinors improve or harm prediction is an open empirical question
+(issue #39).
+
 ---
 
 ## 6. Candidate Instantiations

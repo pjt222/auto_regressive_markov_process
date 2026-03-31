@@ -43,6 +43,34 @@ bias that:*
 
 ---
 
+## Scope of Claim
+
+This conjecture is explicitly:
+
+1. **Within-class**: Both the Spinor+Decay and Diagonal SSMs are linear
+   recurrences in TC^0 [@merrill2024illusion]. The claim is a constant-factor
+   improvement within this complexity class, not a class-crossing improvement
+   [@deletang2023chomsky].
+
+2. **For finite-Markov-order sources**: The prediction advantage is demonstrated
+   on a 2nd-order Markov source. Whether it transfers to natural language —
+   where non-Markovian induction heads dominate [@olsson2022incontext] — is an
+   open empirical question (issue #31).
+
+3. **An inductive-bias-efficiency claim, not an expressivity claim**: Both
+   models are universal approximators given sufficient parameters
+   [@yun2020transformers]. The conjecture claims that the Spin(D) constraint
+   improves *sample efficiency* — better generalization at matched parameter
+   count — not that it enables a function class the diagonal model cannot reach.
+
+4. **Not yet distinguished from non-diagonality**: The observed advantage could
+   be attributable to any dense (non-diagonal) transition projecting more of the
+   input's log-signature [@cirone2024theoretical], rather than to the specific
+   geometry of Spin(D). A generic dense SSM ablation is needed to resolve this
+   (see Adversarial Literature below).
+
+---
+
 ## Conditions
 
 The conjecture requires:
@@ -136,6 +164,29 @@ diagonal SSM at D=768.
 
 ---
 
+## Adversarial Literature
+
+Seven papers challenge aspects of this conjecture. Full analysis in
+`literature/reviews/adversarial_literature.md`. Key challenges:
+
+| Paper | Challenge | Status |
+|-------|-----------|--------|
+| Deletang et al. 2023 | Expressivity is Chomsky-class-bounded | Addressed (within-class claim) |
+| Olsson et al. 2022 | Real prediction uses non-Markovian induction heads | Open (issue #31 is the test) |
+| Yun et al. 2020 | Universal approximation makes Markov question underdetermined | Addressed (bias, not expressivity) |
+| Merrill et al. 2024 | SSM "state" is illusory; both are TC^0 | Addressed (below the ceiling) |
+| Sarrof et al. 2024 | SSM expressivity limited by linearity, not geometry | Orthogonal (smooth sources) |
+| **Cirone et al. 2024** | **Both are log-signature projections; geometry may be irrelevant** | **Not addressed — needs ablation** |
+| Movahedi et al. 2024 | Wrong geometric constraint can hurt | Partial (falsification criterion 3) |
+
+**Critical open question**: Does the prediction advantage come from the Spin(D)
+geometry specifically, or from any non-diagonal transition? A **generic dense SSM
+ablation** at matched parameter count would resolve this. If Spinor+Decay beats
+Generic Dense, the geometric structure carries the load. If not, the advantage is
+merely non-diagonality.
+
+---
+
 ## Next Steps
 
 1. ~~**Implement Toy Example** (issue #7)~~ **DONE** — `framework/toy_example.py`, `framework/train_toy.py`
@@ -143,6 +194,7 @@ diagonal SSM at D=768.
 3. **Dimension scaling experiment** (issue #38): Test prediction advantage across D
 4. **Derive norm concentration bound**: When does $\text{Var}[\log\|h_t\|] \to 0$?
 5. **Scale to factored quaternion SSM** (issue #31): Real language data at D=768
+6. **Generic dense SSM ablation**: Distinguish geometric structure from non-diagonality (Cirone et al. challenge)
 
 ---
 
