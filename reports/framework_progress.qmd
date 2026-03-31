@@ -72,6 +72,32 @@ $\lambda_t$. Results with random parameters:
 Decay reduces the spinor's Markov score by 47%. Diagonal SSM still wins with
 random params. Next step: training (issue #30).
 
+## 2026-03-31: Theoretical Finding — k=1 Case DISPROVED (Issue #37)
+
+**The k=1 case of Conjecture 4.1 is FALSE.** The projected process $(s_t)$ on
+$S^{D-1}$ is NOT exactly Markov even when the source is 1st-order, because the
+norm $\|h_t\|$ leaks history through the mixing weight.
+
+**This changes the framework**: the correct state is $h_t \in \mathbb{R}^D$
+(including norm), not $s_t \in S^{D-1}$. The quotient to the sphere discards
+information that matters. The raw process $(h_t)$ IS exactly Markov by
+construction.
+
+**Revised understanding**:
+
+- The state space should be $\mathbb{R}^D$ (or $S^{D-1} \times \mathbb{R}_{>0}$)
+- The Markov property holds trivially for $h_t$ (by construction)
+- The interesting question becomes: does the **geometric structure** (spinor
+  transitions) provide benefits over unconstrained transitions? Benefits in:
+  training stability, generalization, parameter efficiency, interpretability.
+- The norm $\|h_t\|$ may carry Barbour-like complexity information (issue #35)
+
+**Revised conjecture target**: Instead of "is the process Markov on $S^{D-1}$?",
+ask "does geometric structure on the Markov process in $\mathbb{R}^D$ improve
+next-token prediction?"
+
+See `framework/proofs/k1_case_disproof.md` for the proof.
+
 # Domain Priorities
 
 | Domain | Priority | Role |
