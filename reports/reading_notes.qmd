@@ -1295,48 +1295,163 @@ condition to satisfy this.
 
 # Phase D: Extended Autoregressive Models
 
-## 14. Autoregressive Diffusion Models (2021)
+## 14. Autoregressive Diffusion Models (Hoogeboom et al. 2021) {#sec-hoogeboom2021}
 
-*Reading status: not started*
+*Reading status: complete (2026-03-31)*
 
-## 15. MEGABYTE: Million-byte Sequences (2023)
+Unifies AR and discrete diffusion via absorbing-state transition matrices. Each
+step refines by "unmasking" one variable -- the generation order is a latent
+variable sampled uniformly. The stochastic transition matrix chain is
+structurally analogous to our spinor sandwich products: both are special cases
+of order-agnostic Markov refinement. **Key for our framework**: generation order
+need not be left-to-right; the Markov property holds regardless of ordering.
 
-*Reading status: not started*
+## 15. MEGABYTE (Yu et al. 2023) {#sec-yu2023}
 
-## 16. Continuous Autoregressive Models with Noise Augmentation (2024)
+*Reading status: complete (2026-03-31)*
 
-*Reading status: not started*
+Byte-level AR with global/local two-scale architecture (global Transformer over
+patches, local Transformer within patches). Does NOT eliminate the
+tokenization-Markov connection -- instead reveals **nested Markov structure** at
+two scales. The global model is Markov over patches; the local model is Markov
+over bytes within a patch. Compatible with hierarchical Spin(p,q) formulations
+where different grades handle different scales.
 
-## 17. Beyond Autoregression: Self-Distillation Through Time (2024)
+## 16. Continuous AR with Noise Augmentation (Pasini et al. 2024) {#sec-pasini2024}
 
-*Reading status: not started*
+*Reading status: complete (2026-03-31)*
 
-## 18. Autoregressive Image Generation without Vector Quantization (2024)
+Noise augmentation solves error accumulation in continuous-embedding AR by
+training robustness to off-distribution inputs. **Direct analogue for our
+framework**: the spinor chain can drift off the unit-norm manifold
+($\|u_t\| \neq 1$) over long sequences; training with perturbed inputs would
+mitigate this. Practical concern: manifold drift in Spin(p,q) requires either
+re-projection or noise-robust training.
 
-*Reading status: not started*
+## 17. Beyond Autoregression / SDTT (Deschenaux & Gulcehre 2024) {#sec-deschenaux2024}
+
+*Reading status: complete (2026-03-31)*
+
+Discrete diffusion LMs (MDLMs) as non-sequential alternative, achieving 8x
+speedup over AR+KV-cache via self-distillation. Key structural finding:
+deterministic distillation (DDIM-style) is impossible for masked diffusion due
+to absorbing-state initialization -- a concrete distinction between
+discrete-absorbing and continuous Markov dynamics. **Implication**: AR Markov
+chains retain architectural advantages for sequential latent-state modeling
+that diffusion models cannot replicate.
+
+## 18. AR Image Gen without VQ (Li et al. 2024) {#sec-li2024}
+
+*Reading status: complete (2026-03-31)*
+
+Separates inter-token AR structure (Transformer $\to$ latent $z$) from
+intra-token distribution (Diffusion Loss $\to$ $p(x|z)$). **Directly validates
+continuous-state AR**: the latent tokens are continuous vectors, not discrete
+indices. This decomposition maps onto our HMM structure: spinor chain = hidden
+state transitions, diffusion decoder = observation model. The Markov property
+applies to the latent chain, not to the observed tokens.
+
+## Phase D Summary {#sec-phaseD-summary}
+
+Phase D validates that **continuous-state AR is viable** (Li 2024, MAR without VQ)
+and that **generation order is a latent variable** (Hoogeboom 2021, ARDM). Key
+practical concern: **manifold drift** in Spin(p,q) over long sequences requires
+noise-robust training (Pasini 2024). AR Markov chains retain structural
+advantages over diffusion for sequential latent-state modeling (Deschenaux 2024).
 
 # Phase E: Foundations and Secondary
 
-## 19. Spectral Algorithm for Learning HMMs (Hsu et al. 2012)
+## 19. Spectral Algorithm for Learning HMMs (Hsu et al. 2012) {#sec-hsu2012}
 
-*Reading status: not started*
+*Reading status: complete (2026-03-31)*
 
-## 20. Are Transformers Effective for Time Series Forecasting? (Zeng et al. 2023)
+Polynomial-time, provably correct HMM learning via SVD of correlation matrices
+(CCA between past and future), avoiding EM's local optima. Learns an "observable
+representation" $\{B_x, b_1, b_\infty\}$ from which all sequence probabilities are
+computed as telescoping products. **For our framework**: spectral/SVD learning of
+Markov structure from observable correlations is directly applicable to learning
+Spin(p,q)-equivariant transition operators from sequence data without EM.
+Products of $B_x$ matrices are structurally analogous to products of spinor
+sandwich operators.
 
-*Reading status: not started*
+## 20. Are Transformers Effective for Time Series? (Zeng et al. 2023) {#sec-zeng2023}
 
-## 21. TRACE: Probabilistic Reasoning for Controllable Generation (2025)
+*Reading status: complete (2026-03-31)*
 
-*Reading status: not started*
+**CRITICAL PERSPECTIVE**: A single linear layer (LTSF-Linear: $\hat{X}_i = WX_i$)
+beats all Transformer LTSF models on 9 benchmarks by 20-50%. Self-attention is
+permutation-invariant and structurally loses temporal order. Shuffling inputs
+degrades linear models far more than Transformers, indicating Transformers never
+truly captured temporal structure.
+
+**Warning for our framework**: If permutation-invariant mechanisms struggle with
+temporal order, this **strengthens** the case for explicitly structured sequential
+models (spinor-product Markov chains) over attention. However, our setting
+(discrete latent Markov dynamics in embedding space) differs from continuous
+time series forecasting. The lesson: temporal structure should be built into
+architecture rather than learned implicitly through attention.
+
+## 21. TRACE (Weng et al. 2025) {#sec-weng2025}
+
+*Reading status: complete (2026-03-31)*
+
+TRACE distills an HMM from a pretrained LM and uses it for tractable
+controllable generation. The HMM (hidden states $z$, transitions $p(z_t|z_{t-1})$,
+emissions $p(x_t|z_t)$) serves as a tractable proxy enabling exact Expected
+Attribute Probability via forward-backward in $O(n(hV + h^2))$. Achieves SOTA
+detoxification with only 1.2x inference overhead.
+
+**Key for our framework**: TRACE directly instantiates our research question --
+can Markov structure be **extracted** from trained AR models? Answer: yes, via
+HMM distillation. This suggests our spinor transition operators could be
+**learned by distilling from a pretrained LM** rather than trained from scratch.
 
 ## 22-25. Remaining HMM/AR Papers
 
-*Reading status: not started*
+*Reading status: deferred to future sessions*
 
-## 26-28. Barbour Papers (Secondary)
+## 26. Barbour: Solution to Problem of Time in Shape Dynamics (2013) {#sec-barbour2013}
 
-*Reading status: not started*
+*Reading status: complete (2026-03-31)*
 
-## 29-30. Remaining Geometric Papers
+Shape Space is formally $S = \mathbb{R}^{3N}/\text{Sim}$ where Sim = translations
+$\times$ rotations $\times$ dilatations. Each point is an equivalence class of
+N-body configurations under similarity transformations -- a pure shape. The
+dilatational momentum $D = \sum r_a \cdot p_a$ is monotonic (convexity of $I_{cm}$),
+providing a preferred independent variable $\tau = D/D_0$ replacing absolute time.
+The shape potential $V_s = V_{\text{New}}/R$ drives complexity growth.
 
-*Reading status: not started*
+**For our framework**: Shape Space quotients by Sim $= \mathbb{R}^3 \rtimes \text{SO}(3) \times \mathbb{R}^+$.
+Our embedding quotient by SO(D) is structurally analogous but in $D$ dimensions.
+The key formal object is $V_s$ as the complexity measure on shape space -- we need
+an analogue for embedding space (still open, still analogical).
+
+## 27. Barbour: Gravitational Arrow of Time (2014) {#sec-barbour2014}
+
+*Reading status: complete (2026-03-31)*
+
+Defines the complexity measure explicitly:
+$$C_s = \frac{l_{\text{rms}}}{l_{\text{mhl}}}$$
+where $l_{\text{rms}} = I_{cm}^{1/2}/m_{\text{tot}}$ and
+$1/l_{\text{mhl}} = |V_{\text{New}}|/m_{\text{tot}}^2$. $C_s$ is dimensionless,
+unbounded above, with no local maxima -- it can only grow. The Janus Point is
+the unique minimum of $C_s$ (where $D = 0$, particle distribution most uniform).
+
+In shape coordinates $(\sigma, \omega)$, the equations of motion include a
+**dissipative term** $-\omega^a$: integrating out scale introduces friction into
+shape dynamics. **Analogue for our framework**: operating on normalized embeddings
+(stripping scale, like cosine similarity) could introduce an effective complexity
+gradient into the Markov transition -- complexity growth as an emergent property
+of the quotient dynamics.
+
+## 28. E8 Sphere Packing (Viazovska 2016) {#sec-viazovska2016}
+
+*Reading status: complete (2026-03-31)*
+
+E8 lattice achieves optimal sphere packing in $\mathbb{R}^8$ ($\Delta_8 = \pi^4/384$).
+The 240 minimal vectors form the E8 root system. **For our framework**: if spinor
+representations naturally live near 8 dimensions (e.g., Spin(4,4) or Spin(8)),
+E8 provides the optimal discrete quantization lattice for the Markov chain's
+hidden states. The 240 root vectors could serve as canonical directions in
+embedding space. Primarily of interest for the discretization path (Option 1
+from issue #10).
