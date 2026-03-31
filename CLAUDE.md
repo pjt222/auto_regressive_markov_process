@@ -10,13 +10,15 @@ This is a research project exploring the combination of:
 - Embedding/vector space grounding based on "complexity" concepts from Julian Barbour's work
 - Geometric shape-based calculations with n-dimensional embeddings
 
-## Convergent Thesis (from deep review, 2026-03-31)
+## Research Hypothesis (from deep review synthesis, 2026-03-31)
 
 > An autoregressive model whose state is defined as a point in a quotient
 > embedding space (modulo some symmetry group) can preserve the Markov property
 > under conditions that are formalizable and empirically testable -- and the
 > structure of the quotient determines what "complexity" means for the generated
 > sequence.
+
+**Note**: This is our conjecture, not a literature finding. It must be supported by proof or experiment before being treated as established. See issue #12.
 
 ## Domain Priorities
 

@@ -18,10 +18,11 @@ Papers are organized by reading phase. For each paper, notes capture: summary,
 key claims, mathematical objects defined, relevance to the project thesis, and
 open questions.
 
-**Convergent thesis** (from deep review, 2026-03-31): *An autoregressive model
-whose state is defined as a point in a quotient embedding space (modulo some
-symmetry group) can preserve the Markov property under conditions that are
-formalizable and empirically testable.*
+**Research hypothesis** (our conjecture, not a literature finding): *An
+autoregressive model whose state is defined as a point in a quotient embedding
+space (modulo some symmetry group) can preserve the Markov property under
+conditions that are formalizable and empirically testable.* See issue #12 for
+the distinction between hypothesis and finding.
 
 # Phase A: Core Markov-AR Connection
 
@@ -530,19 +531,323 @@ satisfying and connects to Barbour's continuous shape space.
 4. The prior model uses a GAN-like generator for rate matrices. Could this be
    adapted to generate transition kernels for our embedding-space process?
 
+## Phase A Summary and Markov Disambiguation {#sec-phaseA-summary}
+
+### Disambiguation: Four senses of "Markov" in Phase A papers {#sec-markov-disambiguation}
+
+The four Phase A papers use "Markov" to mean different things. Our framework
+must specify which sense it targets. (See GitHub issue #14.)
+
+| Paper | Type of Markov | State Space | Deterministic? | Time | Key Assumption |
+|-------|---------------|-------------|----------------|------|----------------|
+| Bohde 2024 (ForgetNet) | Algorithmic state sufficiency | Graph features (given by CLRS-30 hints) | Yes | Discrete steps | Full state provided as supervision |
+| Rajaraman 2024 (Tokenization) | Statistical $k$th-order independence | Token sequences (finite alphabet) | No (stochastic) | Discrete | Ergodic source, $\min P(a'|a) \geq \delta > 0$ |
+| Deng 2020 (Markov Transformer) | CRF order-$m$ factorization | Raw token spans of length $m+1$ | No | Discrete | Bounded context window $M$ |
+| Seifner 2023 (NeuralMJP) | Continuous-time transition rates | $K$ discrete states ($K = 3$--$6$) | No | Continuous | Homogeneous MJP, finite state space |
+
+**Our framework targets**: Stochastic, continuous-state ($\mathbb{R}^n$),
+discrete-time Markov processes -- closest to a continuous-state extension of
+Seifner's formalism, but in discrete time (autoregressive steps rather than
+continuous flow). This sense is NOT directly covered by any of the four papers.
+
+### Phase A Key Findings
+
+1. **Three mechanisms** for achieving Markov structure: by construction (Paper 1),
+   by tokenization (Paper 2), by architecture (Paper 3). Plus one formal
+   framework: rate matrix / master equation (Paper 4).
+2. **The sufficient statistic condition** $I(x_{t+1}; x_{\leq t} \mid s_t) = 0$
+   is the central formal requirement for our state definition.
+3. **Tokenization absorbs Markov structure** into token boundaries; transformers
+   then learn simpler (unigram) models. This suggests our continuous embedding
+   should similarly absorb sequential dependencies.
+4. **The rate matrix** from NeuralMJP provides the template for our transition
+   kernel, but extending from $K$ discrete states to $\mathbb{R}^n$ requires
+   either discretization or Fokker-Planck / SDE machinery.
+
 # Phase B: State Space Models and Memory
 
-## 5. StableSSM: Alleviating the Curse of Memory (2023)
+## 5. StableSSM: Alleviating the Curse of Memory (2023) {#sec-wang2023}
 
-*Reading status: not started*
+**Authors**: Shida Wang, Qianxiao Li (National University of Singapore)
+**Venue**: ICML 2024
+**arXiv**: 2311.14495
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+This paper proves that state-space models (SSMs) suffer from the same **"curse
+of memory"** as traditional RNNs: without reparameterization, SSMs can only
+stably approximate targets with **exponentially decaying memory**. Targets
+requiring longer memory (polynomial or slower decay) cause the recurrent weights
+to converge toward the stability boundary ($|\lambda| \to 1$), making training
+unstable.
+
+The key contribution is identifying **stable reparameterization** as the fix.
+By reparameterizing the recurrent weight $\lambda = f(w)$ through a function $f$
+that maps trainable weight $w$ to the eigenvalue $\lambda$, the "curse" can be
+lifted. The paper derives the **optimal** reparameterization in the stability
+sense: $f(w) = -1/(aw^2 + b)$ with $a > 0, b \geq 0$.
+
+### Key Theorems
+
+**Theorem 3.3** (Curse of memory in SSMs): For a state-space model with hidden
+dimension $m$ stably approximating a target functional $\mathbf{H}$, the memory
+function decays exponentially:
+
+$$\mathcal{M}(\mathbf{H})(t) \leq (d+1)L_0 \theta_{\max}^2 e^{-\beta t}$$
+
+For $\ell$-layer SSMs, memory decays as $P(t)e^{-\beta t}$ where $P(t)$ is a
+polynomial of degree at most $\ell - 1$.
+
+**Theorem 3.5** (Stable reparameterization lifts the curse): With stable
+reparameterization, SSMs can stably approximate **any** bounded, causal,
+continuous, regular, time-homogeneous target with decaying memory.
+
+**Theorem 3.6** (Gradient-weight relationship): The gradient norm is bounded by
+$G_f(w) \leq C \cdot |f'(w)| / f(w)^2$. The optimal reparameterization
+minimizes the maximum gradient-over-weight ratio across all eigenvalues.
+
+### Mathematical Objects Defined
+
+- **Memory function** (Def. 2.1): $\mathcal{M}(\mathbf{H})(t) := \sup_{x \neq 0} \frac{|\frac{d}{dt}H_t(\mathbf{u}^x)|}{|x|_\infty + 1}$ — measures how much the model remembers an impulse at $t=0$
+- **Decaying memory** (Def. 2.2): $\lim_{t\to\infty} \mathcal{M}(\mathbf{H})(t) = 0$
+- **Exponential/polynomial decay**: $e^{\beta t}\mathcal{M} \to 0$ vs. $t^\beta \mathcal{M} \to 0$
+- **Stable approximation** (Def. 2.5): Perturbation error $E(\beta)$ is continuous on $[0, \beta_0]$ with $E(0) = 0$
+- **Stability boundary**: $\max_i \lambda_i(\Lambda) < 0$ in continuous time; $|\lambda| < 1$ in discrete
+- **Gradient scale function**: $G_f(w) = |f'(w)| / f(w)^2$ — determines optimization landscape
+
+### Relevance to Our Project
+
+**HIGH RELEVANCE** -- this paper directly constrains our state definition.
+
+**What transfers directly:**
+
+1. **The curse of memory is a hard constraint on our state space**. If we define
+   $s_t$ as a fixed-dimensional SSM hidden state, Theorem 3.3 says it can only
+   stably encode exponentially decaying dependencies. For language, where
+   long-range dependencies matter, this means a naive SSM-based state will be
+   an insufficient statistic -- it will forget too quickly. This is a
+   **mathematical obstruction** to Reading C from the Markovian review.
+
+2. **Reparameterization is necessary, not optional**. For our framework to have
+   a fixed-dimensional state that captures sufficient history, the state
+   dynamics must use stable reparameterization. The optimal $f(w) = -1/(aw^2+b)$
+   should be part of our state definition.
+
+3. **Memory function as formalization tool**. The memory function
+   $\mathcal{M}(\mathbf{H})(t)$ gives us a quantitative measure of how much
+   history our state preserves. For our sufficient statistic condition
+   $I(x_{t+1}; x_{\leq t} \mid s_t) = 0$, the memory function tells us *how far
+   back* $s_t$ effectively remembers. If $\mathcal{M}$ decays too fast, $s_t$
+   cannot be a sufficient statistic for tasks with long-range dependencies.
+
+4. **Layer depth trades off with memory order**. Theorem 3.3 shows $\ell$-layer
+   SSMs have memory $P(t)e^{-\beta t}$ where $\deg(P) \leq \ell - 1$. Deeper
+   SSMs have slower-decaying memory. For our framework: the "Markov order"
+   achievable by a fixed-dimensional state grows with depth.
+
+**What does NOT transfer:**
+
+- The paper studies **linear** SSMs (with nonlinear activation only in the
+  readout). Our embedding space may need nonlinear dynamics.
+- The theory is for **1D output** sequences. Extension to high-dimensional
+  embedding spaces is not addressed.
+- The stability analysis assumes **diagonal** recurrent weight matrices.
+  General (non-diagonal) dynamics may behave differently.
+
+### Key Insight for Our Framework
+
+**There is a fundamental trade-off between state dimension, depth, and memory
+length that constrains whether a fixed-dimensional state can be a sufficient
+statistic.** This is not just an engineering challenge -- it is a mathematical
+limitation (Theorem 3.3).
+
+For our state definition, this means:
+- A single-layer, $m$-dimensional SSM state can only remember exponentially
+  decaying information (with stable reparameterization: any decay rate)
+- To capture $k$th-order Markov dependencies, we need either (a) large enough
+  state dimension $m$, (b) enough layers $\ell$, or (c) a reparameterization
+  that lifts the curse
+- The sufficient statistic condition may be **impossible to satisfy exactly**
+  with a finite-dimensional state for tasks with long-range dependencies --
+  we may need to settle for "approximately Markov" with quantifiable error
+
+This connects directly to the tokenization theory (Paper 2): tokenization
+achieves approximate Markovianity by expanding the effective state dimension
+(dictionary size). StableSSM shows the continuous analogue has the same
+trade-off but with a stability constraint.
+
+### Open Questions
+
+1. What is the minimum state dimension $m$ required for the memory function
+   to capture dependencies of length $k$? Is there a formal relationship
+   $m = f(k)$?
+2. Can the optimal reparameterization $f(w) = -1/(aw^2+b)$ be given a
+   geometric interpretation in our quotient space framework?
+3. Does the curse of memory apply to **nonlinear** SSMs (not just linear with
+   nonlinear readout)? Mamba uses selective (input-dependent) dynamics --
+   does this change the memory bounds?
+4. How does the memory function relate to the mixing time from Paper 4
+   (NeuralMJP)? Both characterize "how fast the system forgets."
 
 ## 6. Reinforcement Learning with Fast and Forgetful Memory (2023)
 
 *Reading status: not started*
 
-## 7. Mamba: Linear-Time Sequence Modeling with Selective State Spaces (2023)
+## 7. Mamba: Linear-Time Sequence Modeling with Selective State Spaces (2023) {#sec-gu2023}
 
-*Reading status: not started*
+**Authors**: Albert Gu, Tri Dao (CMU / Princeton)
+**Venue**: arXiv preprint (widely cited, foundational)
+**arXiv**: 2312.00752
+
+*Reading status: complete (2026-03-31)*
+
+### Summary
+
+Mamba introduces **selective state space models** -- SSMs where the parameters
+$\mathbf{B}$, $\mathbf{C}$, and $\Delta$ are **functions of the input** rather than
+fixed. This single change -- making the dynamics input-dependent -- addresses the
+fundamental limitation of prior SSMs (LTI models) that they cannot perform
+content-aware reasoning.
+
+The core SSM is:
+
+- Continuous: $h'(t) = \mathbf{A}h(t) + \mathbf{B}x(t)$, $y(t) = \mathbf{C}h(t)$
+- Discretized: $h_t = \overline{\mathbf{A}}h_{t-1} + \overline{\mathbf{B}}x_t$, $y_t = \mathbf{C}h_t$
+- Where $\overline{\mathbf{A}} = \exp(\Delta\mathbf{A})$, $\overline{\mathbf{B}} = (\Delta\mathbf{A})^{-1}(\exp(\Delta\mathbf{A}) - I) \cdot \Delta\mathbf{B}$
+
+**The selection mechanism**: $\mathbf{B}_t = s_B(x_t)$, $\mathbf{C}_t = s_C(x_t)$,
+$\Delta_t = \tau_\Delta(\text{Parameter} + s_\Delta(x_t))$ where $s_B$, $s_C$, $s_\Delta$
+are learned linear projections and $\tau_\Delta = \text{softplus}$.
+
+This makes the transition matrix $\overline{\mathbf{A}}_t$ **time-varying** (depends on
+$x_t$), breaking the LTI assumption but enabling content-based filtering.
+
+### Key Contributions
+
+1. **Selection = compression of context into state**: The fundamental problem of
+   sequence modeling is compressing context into a finite state. Attention does
+   not compress (KV cache grows linearly). LTI SSMs compress but cannot filter
+   by content. Selective SSMs compress AND filter.
+
+2. **Connection to gating** (Theorem 1): When $N=1$, $A=-1$, $B=1$, the
+   selective SSM reduces to the classical gated RNN:
+   $g_t = \sigma(\text{Linear}(x_t))$, $h_t = (1-g_t)h_{t-1} + g_t x_t$.
+   **Discretization of continuous SSMs is the principled foundation of heuristic
+   gating mechanisms.**
+
+3. **Three selection effects**:
+   - **Variable spacing**: Filter out irrelevant tokens ($g_t \to 0$)
+   - **Filtering context**: Reset state at boundaries ($\Delta_t \to \infty$)
+   - **Boundary resetting**: Handle sequence boundaries ($g_t \to 1$ at boundaries)
+
+4. **Empirical results**: Mamba-3B matches Transformers twice its size. Solves
+   induction heads task perfectly and **generalizes to 4000x longer sequences
+   than training** (1M tokens).
+
+### Mathematical Objects Defined
+
+- **SSM state**: $h_t \in \mathbb{R}^N$ per channel, total state = $\mathbb{R}^{DN}$
+  where $D$ = model dimension, $N$ = state expansion factor
+- **Selective transition**: $\overline{\mathbf{A}}_t = \exp(\Delta_t \mathbf{A})$ -- the
+  transition matrix at step $t$ depends on input $x_t$ via $\Delta_t$
+- **Selection functions**: $s_B(x) = \text{Linear}_N(x)$,
+  $s_C(x) = \text{Linear}_N(x)$,
+  $s_\Delta(x) = \text{Broadcast}_D(\text{Linear}_1(x))$
+
+### Relevance to Our Project
+
+**CRITICAL RELEVANCE** -- Mamba is the closest existing architecture to what our
+framework envisions.
+
+**What transfers directly:**
+
+1. **Selective SSM IS a content-dependent Markov process**. The state update
+   $h_t = \overline{\mathbf{A}}_t h_{t-1} + \overline{\mathbf{B}}_t x_t$ is a Markov
+   transition where the kernel depends on the current input. This is exactly
+   the "Reading C" from the Markovian review: $h_t$ is a fixed-dimensional state,
+   and the transition is Markov given $(h_{t-1}, x_t)$. Mamba provides a
+   **concrete, working instantiation** of our framework's state.
+
+2. **The selection mechanism is a learned sufficient statistic constructor**.
+   By choosing which information to keep ($g_t$ large) and which to forget
+   ($g_t$ small), Mamba builds a state $h_t$ that attempts to be a sufficient
+   statistic for future prediction. The $\Delta$ parameter controls the balance:
+   large $\Delta$ = focus on current input (reset), small $\Delta$ = persist state
+   (remember).
+
+3. **The gating connection resolves the G-ForgetNet puzzle**. Paper 1's
+   G-ForgetNet gate and Mamba's $\Delta$ are the same mechanism at different
+   abstraction levels. Theorem 1 makes this precise. The gate closing in
+   G-ForgetNet corresponds to the selective SSM choosing $\Delta_t$ values that
+   filter irrelevant history.
+
+4. **State dimension is explicit**: Total state = $\mathbb{R}^{DN}$ where $D$ is
+   model dimension and $N$ is state expansion ($N \approx 16$ in practice). For
+   our state definition: $s_t \in \mathbb{R}^{DN}$ is a concrete candidate.
+
+**What does NOT transfer / critical gaps:**
+
+- **No geometric structure**: Mamba's state space is flat $\mathbb{R}^{DN}$ with
+  no quotient structure, no symmetry group, no metric beyond Euclidean. Our
+  framework adds geometry; Mamba does not have it.
+- **The Markov property is approximate, not exact**: $h_t$ is a lossy compression
+  of history. The sufficient statistic condition $I(x_{t+1}; x_{\leq t} | h_t) = 0$
+  is NOT exactly satisfied -- information is lost. The curse of memory (Paper 5)
+  proves this loss is unavoidable for targets with slow memory decay.
+- **No formal analysis of WHAT is forgotten**: The selection mechanism decides
+  what to keep/forget, but there is no theoretical characterization of the
+  information loss. We do not know the "Markov order" of Mamba's state.
+- **Diagonal $\mathbf{A}$ only**: $\mathbf{A} = \text{Diag}(\lambda_1, \ldots, \lambda_N)$.
+  Non-diagonal dynamics (which might capture richer geometric structure) are
+  not explored.
+
+### Key Insight for Our Framework
+
+**Mamba's selective SSM is the best existing candidate for our state $s_t$.**
+
+The state $h_t \in \mathbb{R}^{DN}$ with input-dependent transition
+$\overline{\mathbf{A}}_t = \exp(\Delta_t \mathbf{A})$ satisfies:
+- Fixed-dimensional (addresses the "infinite state" problem of transformers)
+- Content-dependent transitions (not just time-invariant)
+- Proven effective empirically (matches transformers at scale)
+- Has formal connection to gating (Theorem 1)
+
+**Our framework's distinctive contribution would be adding geometric structure
+to Mamba's state space**: replace the flat $\mathbb{R}^{DN}$ with a quotient
+space $\mathbb{R}^{DN}/G$ for some symmetry group $G$, and ask whether the
+resulting process has better Markov properties (less information loss, more
+structured transitions).
+
+This reframes the project concretely: **our framework = Mamba + geometric
+structure on the state space**.
+
+### Connection to Other Papers
+
+- **Paper 1** (ForgetNet): G-ForgetNet's gate = Mamba's $\Delta$ (Theorem 1)
+- **Paper 2** (Tokenization): Tokenization expands discrete state; Mamba expands
+  continuous state via $N$ (state dimension per channel)
+- **Paper 3** (Markov Transformer): Attention barriers impose hard Markov order;
+  Mamba's $\Delta$ imposes soft, input-dependent forgetting
+- **Paper 4** (NeuralMJP): Rate matrix $\mathbf{F}$ parallels Mamba's $\mathbf{A}$;
+  both define continuous-time Markov dynamics
+- **Paper 5** (StableSSM): Mamba's diagonal $\mathbf{A}$ with softplus $\Delta$
+  is a specific reparameterization -- likely stable but not proven optimal
+
+### Open Questions
+
+1. Is Mamba's state $h_t$ an **approximately** sufficient statistic? Can we
+   quantify the information loss $I(x_{t+1}; x_{\leq t} | h_t) > 0$?
+2. What happens if $\mathbf{A}$ is not diagonal but has geometric structure
+   (e.g., elements of $\mathfrak{so}(n)$, the Lie algebra of rotations)?
+3. Does the selection mechanism implicitly learn a quotient structure?
+   (i.e., do inputs that differ only by irrelevant symmetries produce similar
+   states?)
+4. Can we derive the optimal state dimension $N$ for a given Markov order $k$?
+   (Connecting StableSSM's memory bounds to Mamba's state expansion)
+5. Mamba uses real-valued states for text. Prior SSMs used complex numbers for
+   audio/vision. Is there a principled choice connected to the data's symmetry?
 
 ## 8. Latent State Models of Training Dynamics (2023)
 

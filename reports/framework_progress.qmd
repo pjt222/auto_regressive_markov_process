@@ -9,13 +9,19 @@ format:
     number-sections: true
 ---
 
-# Convergent Thesis
+# Research Hypothesis
 
 > An autoregressive model whose state is defined as a point in a quotient
 > embedding space (modulo some symmetry group) can preserve the Markov property
 > under conditions that are formalizable and empirically testable -- and the
 > structure of the quotient determines what "complexity" means for the generated
 > sequence.
+
+**Status**: This is a *research hypothesis*, not a finding from the literature.
+None of the papers read so far discuss quotient embedding spaces or symmetry
+groups in the context of autoregressive Markov processes. The hypothesis is our
+conjecture, motivated by the deep review synthesis but not yet supported by
+proof or experimental evidence. (See GitHub issue #12.)
 
 # Open Formal Questions
 
