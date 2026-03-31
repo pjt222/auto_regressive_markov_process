@@ -1,6 +1,6 @@
 # Formal State Definition: Autoregressive Processes on Shape Space
 
-**Version**: 0.1 (working draft)
+**Version**: 0.2 (revised after k=1 disproof and training experiment)
 **Date**: 2026-03-31
 **Status**: Hypothesis — not a theorem. Every claim marked *Conjecture* requires proof or empirical falsification.
 
@@ -21,12 +21,11 @@ This map is an isometry in $O(p,q)$, and for $u \in \text{Spin}(p,q)$ it lands i
 | $D$ | $\mathbb{Z}_{>0}$ | Model embedding dimension |
 | $h_t \in \mathbb{R}^D$ | Vector | Hidden state at step $t$ |
 | $x_t \in \mathbb{R}^D$ | Vector | Input token embedding at step $t$ |
-| $s_t$ | Point in $\mathcal{S}$ | Formal state (defined below) |
-| $G$ | Lie group | Symmetry group acting on $\mathbb{R}^D$ |
-| $\mathcal{S} = \mathbb{R}^D / G$ | Quotient space | State space modulo symmetry |
+| $s_t = h_t$ | $\mathbb{R}^D$ | Formal state (= raw state; revised from $S^{D-1}$) |
+| $\hat{h}_t$ | $S^{D-1}$ | Directional component $h_t / \|h_t\|$ |
 | $u_t \in \text{Spin}(p,q)$ | Spinor | Rotation component of transition |
 | $\overline{B}_t \in \mathbb{R}^{D \times D}$ | Matrix | Input projection, input-dependent |
-| $\pi: \mathbb{R}^D \to \mathcal{S}$ | Projection | Quotient map |
+| $\pi: \mathbb{R}^D \to S^{D-1}$ | Projection | Normalization map $h \mapsto h/\|h\|$ (no longer defines the state) |
 
 ---
 
@@ -44,11 +43,15 @@ This map is an isometry in $O(p,q)$, and for $u \in \text{Spin}(p,q)$ it lands i
 
 *Remark.* The full rotation quotient $\mathbb{R}^D / SO(D)$ retains only $\|h_t\|$, destroying all angular structure. The correct symmetry is a *proper subgroup* of $SO(D)$ corresponding to the actual gauge freedom of the embedding geometry. In practice, cosine similarity is invariant under positive scaling ($G \supseteq \mathbb{R}_{>0}$), so the projective quotient $\mathbb{R}^D \setminus \{0\} / \mathbb{R}_{>0} \cong S^{D-1}$ (the unit sphere) is a natural intermediate choice.
 
-**Definition 2.3 (State space).** The **formal state space** is:
-$$\mathcal{S} = S^{D-1} = \mathbb{R}^D \setminus \{0\} / \mathbb{R}_{>0}$$
-equipped with the round metric. The state at step $t$ is $s_t = \pi(h_t) \in S^{D-1}$, where $\pi(h) = h / \|h\|$.
+**Definition 2.3 (State space — revised).** The **formal state space** is:
+$$\mathcal{S} = \mathbb{R}^D$$
+The state at step $t$ is $s_t = h_t \in \mathbb{R}^D$.
 
-*Remark on Clifford structure.* If we embed $\mathbb{R}^D$ as the grade-1 subspace of $Cl(D, 0)$, then $S^{D-1} \subset Cl(D,0)$ and the sandwich product $\rho_u$ for $u \in \text{Spin}(D)$ acts isometrically on it. This gives $\mathcal{S}$ the structure of a homogeneous space $\text{Spin}(D) / \text{Spin}(D-1) \cong S^{D-1}$, and transitions in $\mathcal{S}$ are naturally expressed in the Clifford language.
+*Remark (why not $S^{D-1}$).* The original formulation used $\mathcal{S} = S^{D-1}$ with the projection $\pi(h) = h/\|h\|$. This was **disproved** for the k=1 case: the norm $\|h_t\|$ carries history through the mixing weight $\lambda_t \|h_t\|$ in the recurrence, so the projected process $(s_t)$ on $S^{D-1}$ is not Markov even when the source is first-order. See `framework/proofs/k1_case_disproof.md`.
+
+*Remark (product decomposition).* The state $h_t \in \mathbb{R}^D$ decomposes naturally into direction and magnitude: $h_t = \|h_t\| \cdot \hat{h}_t$ where $\hat{h}_t \in S^{D-1}$. Equivalently, $\mathbb{R}^D \setminus \{0\} \cong S^{D-1} \times \mathbb{R}_{>0}$. The direction $\hat{h}_t$ carries the "content" and the norm $\|h_t\|$ carries a geometrically-decayed summary of injection magnitudes — potentially analogous to Barbour's complexity (issue #35).
+
+*Remark on Clifford structure.* The grade-1 subspace of $Cl(D, 0)$ is $\mathbb{R}^D$ itself. The sandwich product $\rho_u$ for $u \in \text{Spin}(D)$ preserves the norm and acts isometrically on the directional component. The spinor constraint is a geometric *inductive bias* on the transition, not a constraint on the state space.
 
 ---
 
@@ -60,9 +63,11 @@ where $\lambda_t = \sigma(s_\lambda(x_t)) \in (0, 1)$ is an input-dependent scal
 
 The first term $\lambda_t \cdot u_t h_t u_t^{-1}$ combines rotation (parallel transport) with decay (forgetting); the second term $\overline{B}_t x_t$ is an additive input injection. The scalar decay $\lambda_t$ is essential: without it, the sandwich product preserves all information and the process is not approximately Markov (see toy example, issue #22).
 
-**Definition 3.2 (State transition on $\mathcal{S}$).** The induced transition on $s_t = \pi(h_t) \in S^{D-1}$ is:
-$$s_{t+1} = \pi\!\left(u_t h_t u_t^{-1} + \overline{B}_t x_t\right)$$
-This is well-defined because $\pi$ is equivariant under $\text{Spin}(D)$ (by construction of the sandwich product) and the denominator $\|u_t h_t u_t^{-1} + \overline{B}_t x_t\|$ is generically nonzero.
+**Definition 3.2 (State transition on $\mathcal{S} = \mathbb{R}^D$ — revised).** The state transition on $\mathcal{S} = \mathbb{R}^D$ is simply Definition 3.1 itself:
+$$s_{t+1} = h_{t+1} = \lambda_t \cdot u_t h_t u_t^{-1} + \overline{B}_t x_t$$
+This is Markov by construction: $h_{t+1}$ depends only on $h_t$ and $x_t$, and $x_t$ is drawn from a source independent of the state's history given $h_t$.
+
+*Remark (the old Definition 3.2).* The original formulation used $s_t = \pi(h_t) = h_t / \|h_t\| \in S^{D-1}$ and required showing the projection preserves the Markov property. The k=1 disproof shows it does not: the norm $\|h_t\|$ enters as a hidden variable that breaks Markovianity on the sphere. The revised definition avoids this problem by taking the full state.
 
 **Connection to continuous time.** The continuous-time analogue of the transition in Definition 3.1 is the matrix ODE:
 $$\frac{dh}{d\tau} = A(\tau) h(\tau) + B(\tau) x(\tau)$$
@@ -80,17 +85,33 @@ Three distinct senses of "Markov" are in play:
 |-------|-----------|--------|
 | (A) Sequence Markov | Token sequence $(x_t)$ is 1st-order Markov | False for natural language; approximately true after tokenization (Rajaraman 2024) |
 | (B) Raw-state Markov | $P(h_{t+1} \mid h_0, \ldots, h_t) = P(h_{t+1} \mid h_t)$ | Holds by construction in Definition 3.1 IF $B_t$ depends only on $x_t$ (not on $h_{t-1}$) |
-| (C) Semantic-state Markov | $P(s_{t+1} \mid s_0, \ldots, s_t) = P(s_{t+1} \mid s_t)$ | **This is the project's central claim; its truth depends on the transition structure** |
+| (C) Projected-state Markov | $P(s_{t+1} \mid s_0, \ldots, s_t) = P(s_{t+1} \mid s_t)$ for $s_t = h_t/\|h_t\|$ | **DISPROVED** for k=1 (the norm leaks history). See `proofs/k1_case_disproof.md` |
 
-Sense (B) is automatic from the recurrence definition. Sense (C) is not, because the input $x_t$ introduces correlations from outside the state.
+Sense (B) is automatic from the recurrence definition. Sense (C) is **false** — the quotient to $S^{D-1}$ discards the norm, which carries history.
 
-**Conjecture 4.1 (Approximate Markov property).** Let $(s_t)$ be the process on $S^{D-1}$ defined by Definition 3.2, with $x_t$ drawn from a source process of Markov order $k$. Then:
-$$\mathcal{I}(s_{t+1}; s_{t-1}, \ldots, s_0 \mid s_t) \leq \epsilon(k, D, \sigma^2)$$
-where $\epsilon \to 0$ as $D \to \infty$ (high-dimensional state captures sufficient statistics) or as $k \to 1$ (source is itself Markov).
+**The revised central question** is not "is the process Markov?" (it is, trivially, in $\mathbb{R}^D$) but rather: **does geometric structure (spinor transitions) on the Markov process improve next-token prediction compared to unconstrained transitions?**
 
-*Remark.* The **curse of memory** (Wang & Li 2023, StableSSM) states that SSMs without reparameterization can only stably approximate exponentially decaying targets, implying the residual $\epsilon$ is nonzero in finite $D$. The stable reparameterization lifts this to polynomial decay, bringing $\epsilon$ closer to zero. The conjecture is approximate, not exact.
+**Conjecture 4.1 (Geometric inductive bias — revised).** Let $(h_t)$ be the process defined by Definition 3.1. Compare two parameterizations of the transition:
 
-**Empirical test criterion.** The quantity $\mathcal{I}(s_{t+1}; s_{t-j} \mid s_t)$ (conditional mutual information, lag $j \geq 2$) serves as a falsifiable Markov score. If this quantity decays rapidly with $j$, the process is approximately Markov in $\mathcal{S}$. Gate norms $\|u_t\|_F$ and $\|\overline{B}_t\|_F$ provide proxy signals for how much history is being mixed at each step.
+- **Spinor+Decay**: $h_{t+1} = \lambda_t \cdot u_t h_t u_t^{-1} + \overline{B}_t x_t$ with $u_t \in \text{Spin}(D)$
+- **Diagonal**: $h_{t+1} = \Lambda_t \odot h_t + \overline{B}_t x_t$ with $\Lambda_t \in (0,1)^D$
+
+*Then the Spinor+Decay model achieves lower test loss (better next-token prediction) than the Diagonal model at matched parameter count, because the rotation constraint encodes geometric structure of the embedding space as an inductive bias.*
+
+**Empirical status** (D=3 toy, 3 seeds):
+
+| Model | Test Loss | Markov Score |
+|-------|-----------|-------------|
+| Spinor+Decay (14 params) | 0.5882 ± 0.004 | 0.1793 |
+| Diagonal (12 params) | 0.6446 ± 0.006 | 0.0087 |
+
+The Spinor+Decay model achieves 8.7% lower test loss but carries more history (higher Markov score). This is **partial support**: the geometric bias helps prediction, but the rotation is information-preserving and the model uses that "extra memory" productively for a 2nd-order source.
+
+**Open**: Does this advantage persist at higher D? Does the Markov score gap narrow? See issue #38.
+
+*Remark (old Conjecture 4.1).* The original conjecture claimed $\epsilon(1, D) = 0$ (exact Markov on $S^{D-1}$ for 1st-order sources). This was disproved. The revised conjecture replaces a claim about Markovianity with a claim about prediction quality — a more productive and empirically testable question.
+
+*Remark (Markov score interpretation).* The Markov score $\mathcal{I}(s_{t+1}; s_{t-j} \mid s_t)$ remains useful as a diagnostic, but it is no longer the central quantity. A model with higher Markov score may be better if it uses the extra history productively. The training experiment confirms this: Spinor+Decay has higher Markov score AND lower test loss.
 
 ---
 
@@ -125,21 +146,25 @@ $D = 64$ (small model), grades 0+1+2. State space $\mathcal{S} = S^{63}$. Bivect
 
 **Unresolved theoretical questions (require proof):**
 
-1. **Quotient structure**: What is the correct gauge group $G$ for embedding spaces trained with cosine similarity objectives? Is $G = \mathbb{R}_{>0}$ (projective) sufficient, or does training induce additional rotational symmetry?
+1. ~~**Quotient structure**: What is the correct gauge group $G$?~~ **SUPERSEDED**: The k=1 disproof shows the quotient to $S^{D-1}$ discards load-bearing information (the norm). The state is $h_t \in \mathbb{R}^D$, full stop. The quotient question becomes: under what conditions does the norm concentrate, making the spherical approximation adequate?
 
-2. **Sufficient statistic theorem**: Under what conditions on the transition (Definition 3.1) does $s_t = \pi(h_t)$ constitute a sufficient statistic for $x_{t+1}$? The answer likely involves the rank of $\overline{B}_t$ relative to $D$.
+2. **Sufficient statistic theorem**: Under what conditions does $h_t$ constitute a sufficient statistic for $x_{t+1}$? By construction of the recurrence, $h_t$ summarizes all past inputs — the question is whether the summary is lossy or lossless for prediction. (issue #34)
 
-3. **Stationary distribution**: Does the process on $S^{D-1}$ have a stationary distribution? For the purely rotational case ($\overline{B}_t = 0$), the answer is yes (uniform measure on $S^{D-1}$). With input injection, existence and uniqueness of a stationary measure is open.
+3. **Stationary distribution**: Does the process on $\mathbb{R}^D$ have a stationary distribution? The decay $\lambda_t \in (0,1)$ is contractive, suggesting yes (bounded in expectation). Formal proof needed. (issue #32)
 
-4. **Mixing time**: How many steps does it take for the state distribution to approach stationarity? This determines the effective "memory length" of the process and is related to the spectral gap of the transition operator.
+4. **Mixing time**: How many steps does it take for the state distribution to approach stationarity? This determines the effective "memory length" of the process. (issue #32)
+
+5. **Norm concentration**: Does $\text{Var}[\log \|h_t\|] \to 0$ as $D \to \infty$? If so, the spherical approximation $(S^{D-1})$ becomes asymptotically valid, recovering the original conjecture in the large-$D$ limit.
 
 **Unresolved empirical questions (require experiment):**
 
-5. **Markov score**: Does $\mathcal{I}(s_{t+1}; s_{t-j} \mid s_t)$ decay rapidly with lag $j$ in a trained model? If yes, the approximate Markov property (Conjecture 4.1) is supported.
+6. ~~**Markov score decay**~~ **PARTIALLY RESOLVED**: Training experiment (issue #30) shows Markov scores decay with training for both models, but Spinor+Decay retains more history than Diagonal. The revised question is whether this extra history is *productive* (it appears to be — lower test loss).
 
-6. **Grade truncation adequacy**: Does restricting to grades 0+1+2 lose information that grades 3+ would provide, at the scales of interest?
+7. **Dimension scaling**: Does the prediction advantage of Spinor+Decay over Diagonal persist (or grow) at higher D? Does the Markov score gap narrow? (issue #38)
 
-7. **Barbour correspondence**: Does the norm $\|h_t\|$ (which is discarded by the quotient map $\pi$) carry information analogous to Barbour's entaxy (complexity)? If so, the full state should be $(s_t, \|h_t\|) \in S^{D-1} \times \mathbb{R}_{>0}$, i.e., $\mathbb{R}^D$ itself with the product structure.
+8. **Grade truncation adequacy**: Does restricting to grades 0+1+2 lose information that grades 3+ would provide, at the scales of interest?
+
+9. **Barbour correspondence**: ~~Does the norm carry Barbour-like information?~~ **PARTIALLY CONFIRMED**: The k=1 disproof shows the norm carries a geometrically-decayed summary of injection magnitudes. Whether this maps to Barbour's entaxy remains open. (issue #35)
 
 ---
 

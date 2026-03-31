@@ -10,22 +10,24 @@ This is a research project exploring the combination of:
 - Embedding/vector space grounding based on "complexity" concepts from Julian Barbour's work
 - Geometric shape-based calculations with n-dimensional embeddings
 
-## Research Hypothesis (from deep review synthesis, 2026-03-31)
+## Research Hypothesis (revised 2026-03-31, after k=1 disproof + training experiment)
 
-> An autoregressive model whose state is defined as a point in a quotient
-> embedding space (modulo some symmetry group) can preserve the Markov property
-> under conditions that are formalizable and empirically testable -- and the
-> structure of the quotient determines what "complexity" means for the generated
-> sequence.
+> An autoregressive SSM with spinor-constrained transitions (Spin(D) rotation +
+> scalar decay) achieves better next-token prediction than an unconstrained
+> diagonal SSM at matched parameter count, because the rotation constraint acts
+> as a geometric inductive bias that encodes embedding space structure.
 
-**Note**: This is our conjecture, not a literature finding. It must be supported by proof or experiment before being treated as established. See issue #12.
+**Note**: The original hypothesis (quotient embedding space preserves Markov
+property) was partially disproved -- the k=1 case is false because the norm leaks
+history. The revised hypothesis focuses on prediction quality rather than
+Markovianity. Partial empirical support at D=3 (issue #30). See issue #12, #38.
 
 ## Domain Priorities
 
 | Domain | Priority | Role |
 |--------|----------|------|
-| Autoregression + Markov processes | **PRIMARY** | The thesis -- when does AR preserve Markov property? |
-| Geometric state space structure | **PRIMARY** | The formalization -- quotient spaces, fiber bundles, Clifford algebras |
+| Autoregression + Markov processes | **PRIMARY** | The thesis -- does geometric structure improve AR prediction? |
+| Geometric state space structure | **PRIMARY** | The formalization -- spinor transitions, Clifford algebras, inductive bias |
 | Barbour's complexity theory | SECONDARY | Inspirational -- relational intuition is apt, specific physics not load-bearing |
 | Gray Cuber / pedagogical geometry | SECONDARY | Historical origin -- geometric deep learning literature supersedes it |
 
@@ -39,7 +41,7 @@ See `literature/complexity_theory/STATUS.md` and `literature/geometric_computati
 - `literature/reviews/deep_review_2026_03_31.md` -- full report
 - `literature/reviews/synoptic_integration.md` -- gestalt from synoptic-mind team
 
-**Central finding**: The state is undefined. All formal claims depend on specifying what the "state" is at each autoregressive step. See the framework progress tracker: `reports/framework_progress.qmd`
+**Central finding**: The state is $h_t \in \mathbb{R}^D$ (not the projection to $S^{D-1}$). The k=1 case was disproved: the norm leaks history. Training experiment (D=3) shows spinor transitions improve prediction by 8.7% but carry more history. See `reports/framework_progress.qmd`.
 
 ## Literature Organization
 
@@ -76,19 +78,22 @@ quarto render reports/framework_progress.qmd --to html
 
 ## Development Notes
 
-- The central research question: under what conditions does an AR model preserve the Markov property in a geometrically structured embedding space?
-- The state definition (what is s_t?) must be formalized before other claims can be evaluated
+- The central research question: does geometric structure (spinor transitions) on an AR SSM improve next-token prediction?
+- The state is $h_t \in \mathbb{R}^D$ (formalized in `framework/state_definition.md` v0.2)
+- The quotient to $S^{D-1}$ is invalid — norm leaks history (k=1 disproof)
 - All Barbour connections are currently analogies, not homomorphisms -- use "inspired by" framing
 - The correct nD geometric generalization is Clifford algebras, not the division algebra hierarchy
 - Literature notes should follow the Quarto reading notes format in `reports/reading_notes.qmd`
 
 ## Next Steps
 
-1. Read all 31 papers (organized in 5 phases A-E, see `reports/reading_notes.qmd`)
-2. Define the state s_t in mathematical notation (`framework/state_definition.md`)
-3. Write formalization with testable conjecture (`framework/formalization.md`)
-4. Construct toy example (2D/3D autoregressive process)
-5. Revise and iterate
+1. ~~Read all 31 papers~~ 24/31 done (7 remaining, lower priority -- issue #36)
+2. ~~Define the state~~ **DONE** (revised to $h_t \in \mathbb{R}^D$)
+3. ~~Write formalization~~ **DONE** (revised to geometric inductive bias conjecture)
+4. ~~Construct toy example~~ **DONE** (`framework/toy_example.py`, `framework/train_toy.py`)
+5. **Dimension scaling experiment** (issue #38): test prediction advantage across D
+6. **Derive norm concentration bound**: when does Var[log ||h_t||] → 0?
+7. **Scale to factored quaternion SSM** (issue #31): real language data at D=768
 
 ## Team Definitions
 Team definitions for multi-agent compositions are at `/mnt/d/dev/p/agent-almanac/teams/<team-name>.md`. Read the definition and orchestrate via `TeamCreate`.

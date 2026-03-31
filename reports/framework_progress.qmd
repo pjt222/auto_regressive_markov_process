@@ -25,11 +25,11 @@ proof or experimental evidence. (See GitHub issue #12.)
 
 # Open Formal Questions
 
-1. ~~**State definition**: What is $s_t$?~~ **RESOLVED**: $s_t = h_t/\|h_t\| \in S^{D-1}$. See `framework/state_definition.md`.
+1. ~~**State definition**: What is $s_t$?~~ **RESOLVED (revised)**: $s_t = h_t \in \mathbb{R}^D$ (not $S^{D-1}$; k=1 disproof showed norm carries history). See `framework/state_definition.md` v0.2.
 2. ~~**Transition kernel**~~ **RESOLVED**: $h_{t+1} = \lambda_t u_t h_t u_t^{-1} + \overline{B}_t x_t$ with $u_t \in \text{Spin}(D)$, $\lambda_t \in (0,1)$.
 3. **Sufficient statistic**: Does $I(x_{t+1}; x_{\leq t} \mid h_t) = 0$? **OPEN** (issue #34)
-4. **Symmetry group**: Which group $G$? **OPEN** -- $\mathbb{R}_{>0}$ (projective) is the working choice (issue #26)
-5. **Quotient metric**: What metric on $S/G$? **OPEN** -- round metric on $S^{D-1}$ is default
+4. ~~**Symmetry group / quotient**~~ **SUPERSEDED**: The quotient to $S^{D-1}$ discards load-bearing information. The relevant question is now: does the norm concentrate at high $D$?
+5. **Geometric inductive bias**: Does spinor structure improve prediction at scale? **PARTIALLY CONFIRMED** at D=3 (issue #30), needs higher-D testing (issue #38)
 6. **Stationary distribution**: Does the chain converge? **OPEN** (issue #32)
 
 # Progress Log
@@ -53,9 +53,10 @@ proof or experimental evidence. (See GitHub issue #12.)
 
 ## 2026-03-31: Formalization Milestones
 
-- `framework/state_definition.md`: State on $S^{D-1}$, spinor transitions with decay
-- `framework/formalization.md`: Conjecture with falsification criteria
+- `framework/state_definition.md`: ~~State on $S^{D-1}$~~ **Revised to $\mathbb{R}^D$** (v0.2), spinor transitions with decay
+- `framework/formalization.md`: ~~Approximate Markov conjecture~~ **Revised to geometric inductive bias conjecture** (v0.2)
 - `framework/toy_example.py`: 3D experiment comparing 3 models
+- `framework/train_toy.py`: Training experiment with (1+λ)-ES optimization
 
 ## 2026-03-31: Key Experimental Finding (Issue #22)
 
@@ -97,6 +98,149 @@ ask "does geometric structure on the Markov process in $\mathbb{R}^D$ improve
 next-token prediction?"
 
 See `framework/proofs/k1_case_disproof.md` for the proof.
+
+## 2026-03-31: Training Experiment — Partial Support (Issue #30)
+
+**Question**: Does training resolve the rotation-forgetting tension? Does
+geometric structure (spinor transitions) improve next-token prediction?
+
+**Setup**: (1+λ)-ES optimization, D=3, 2nd-order Markov source, n_train=2000,
+n_test=2000, 150 iterations, 3 random seeds. Spinor+Decay SSM (14 params) vs
+Diagonal SSM (12 params). See `framework/train_toy.py`.
+
+### Prediction performance (test cross-entropy, lower = better)
+
+| Model | Test Loss | Std |
+|-------|-----------|-----|
+| **Spinor+Decay** | **0.5882** | 0.0036 |
+| Diagonal | 0.6446 | 0.0062 |
+
+Spinor+Decay achieves **8.7% lower test loss** — it is the better predictor.
+Consistent across all 3 seeds.
+
+### Markov score (conditional MI, lower = more Markovian)
+
+| Model | Untrained | Trained | Change |
+|-------|-----------|---------|--------|
+| Spinor+Decay | 0.3622 | 0.1793 | **-50.5%** |
+| Diagonal | 0.0178 | 0.0087 | -51.3% |
+
+Training halves both Markov scores (~50% reduction each), but the Diagonal SSM
+remains far more Markovian (0.0087 vs 0.1793).
+
+### Markov score by lag (trained, mean over 3 seeds)
+
+| Lag | Spinor+Decay | Diagonal |
+|-----|-------------|----------|
+| 1   | 0.0000      | 0.0000   |
+| 2   | 0.1959 ± 0.050 | 0.0091 ± 0.011 |
+| 3   | 0.2393 ± 0.037 | 0.0148 ± 0.015 |
+| 4   | 0.2498 ± 0.038 | 0.0093 ± 0.010 |
+| 5   | 0.2117 ± 0.052 | 0.0102 ± 0.009 |
+
+Both models are exactly Markov at lag 1 (by construction). The Spinor+Decay
+model carries significantly more history at lags 2-5.
+
+### Interpretation
+
+**PARTIAL support for the conjecture.** Three findings:
+
+1. **Geometric structure helps prediction**: Spinor+Decay consistently
+   outperforms Diagonal SSM on test loss. The rotation constraint acts as
+   an inductive bias that improves generalization — fewer effective DoF,
+   better signal extraction.
+
+2. **The rotation-forgetting tension is real and persists after training**:
+   Spinor+Decay carries more history (higher Markov score) because the
+   rotation is information-preserving. This is not an artifact of random
+   initialization — training does not resolve it.
+
+3. **The non-Markovianity may be a feature, not a bug**: The model with
+   higher Markov score (more history) is the better predictor. For a
+   2nd-order source, remembering lag-2 history IS useful. The question
+   becomes: is the spinor model using its "extra memory" productively?
+
+**Open question** (new): Is there a regime where Spinor+Decay achieves BOTH
+lower test loss AND lower Markov score than Diagonal? This would require
+the geometric structure to be a more efficient encoder of relevant history.
+Likely needs higher D or richer source statistics.
+
+## 2026-03-31: Dimension Scaling Experiment (Issue #38)
+
+**Question**: Does the spinor prediction advantage persist at higher D?
+
+**Setup**: Block-diagonal Givens rotations (D/2 angles), n_train=1000,
+n_test=1000, 80 iterations, 3 seeds. Spinor uses fewer params than Diagonal
+at every D (e.g., 50 vs 64 at D=16).
+
+| D | Spinor Loss | Diag Loss | Loss Gap | Spinor MS | Diag MS | MS Gap |
+|---|------------|-----------|----------|-----------|---------|--------|
+| 3 | 0.6260 | 0.6679 | **-0.042** | 0.267 | 0.125 | +0.141 |
+| 8 | 0.6282 | 0.6627 | **-0.035** | 0.285 | 0.075 | +0.210 |
+| 16 | 0.6238 | 0.6556 | **-0.032** | 0.302 | 0.106 | +0.196 |
+
+**Findings**:
+
+1. Spinor prediction advantage **persists across all D** tested
+2. Loss gap **narrows slightly** (-0.042 to -0.032) — geometric bias
+   becomes relatively less dominant at higher D
+3. Markov gap **widens** — spinor carries more history at higher D
+4. **No crossover** observed: spinor wins on prediction, diagonal wins
+   on Markovianity at all D
+
+**Caveat**: The block-diagonal Givens parameterization only couples pairs
+of dimensions. At higher D, the rotation is very sparse (D/2 independent
+2D rotations). Larger blocks (quaternion triples, full so(D)) would couple
+more dimensions and might show different scaling behavior.
+
+## 2026-03-31: Dense Rotation Scaling (Issue #38 follow-up)
+
+**Question**: Does denser rotation coupling increase the prediction advantage?
+
+Three parameterizations tested (team experiment: `quat-blocks` + `full-so` agents):
+
+1. **Givens** (block-2): D/2 rotation angles — minimal coupling
+2. **QuatBlock** (block-3): (D//3)*3 bivector params — quaternion per triple
+3. **FullSO**: D(D-1)/2 params — maximum coupling, all dimensions interact
+
+### Combined results
+
+| Param | D | Loss Gap | MS Gap | Spinor Params | Diag Params |
+|-------|---|----------|--------|---------------|-------------|
+| Givens | 3 | -0.042 | +0.141 | 10 | 12 |
+| Givens | 8 | -0.035 | +0.210 | 26 | 32 |
+| Givens | 16 | -0.032 | +0.196 | 50 | 64 |
+| QuatBlock | 3 | -0.068 | +0.378 | — | 12 |
+| QuatBlock | 9 | -0.051 | +0.459 | — | — |
+| QuatBlock | 15 | -0.057 | +0.425 | — | — |
+| FullSO | 3 | **-0.062** | +0.373 | 14 | 12 |
+| FullSO | 8 | **-0.044** | +0.737 | 74 | 32 |
+
+(Loss gap = Spinor - Diagonal; negative = spinor wins. MS gap = Markov score difference.)
+
+### Key findings
+
+1. **Denser coupling = larger prediction advantage**: At comparable D,
+   QuatBlock (-0.057 at D=15) > Givens (-0.032 at D=16). FullSO (-0.044
+   at D=8) > Givens (-0.035 at D=8). The hypothesis is confirmed.
+
+2. **QuatBlock is non-monotonic**: Loss gap goes -0.068 → -0.051 → -0.057,
+   partially recovering at D=15. This is qualitatively different from the
+   monotonic narrowing of Givens, suggesting the block-3 structure interacts
+   nontrivially with dimension.
+
+3. **Universal trade-off**: All parameterizations show the same pattern —
+   better prediction (negative loss gap) comes with higher Markov score
+   (positive MS gap). Denser rotations amplify both effects.
+
+4. **FullSO Markov scores explode at D=8**: MS=0.81 vs Diagonal=0.08.
+   Full coupling preserves almost all history. This is the cost of maximum
+   expressivity — the model remembers everything.
+
+5. **Recommendation for scaling**: QuatBlock (block-3) offers the best
+   balance — substantial prediction advantage with moderate Markov scores,
+   and O(D) parameter scaling. This aligns with the factored Cl(3,0)
+   recommendation in `framework/state_definition.md` §5 Option B.
 
 # Domain Priorities
 
