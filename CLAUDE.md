@@ -35,13 +35,21 @@ See `literature/complexity_theory/STATUS.md` and `literature/geometric_computati
 
 ## Project Status
 
-**Phase**: Literature review -- deep reading (31 papers retrieved, reading in progress)
+**Phase**: Experimental validation (4 experiments completed 2026-04-01)
 
 **Deep review completed**: 2026-03-31 (7 agents, 3 phases). See:
 - `literature/reviews/deep_review_2026_03_31.md` -- full report
 - `literature/reviews/synoptic_integration.md` -- gestalt from synoptic-mind team
 
-**Central finding**: The state is $h_t \in \mathbb{R}^D$ (not the projection to $S^{D-1}$). The k=1 case was disproved: the norm leaks history. Training experiment (D=3) shows spinor transitions improve prediction by 8.7% but carry more history. See `reports/framework_progress.qmd`.
+**Central finding**: Geometric (spinor) inductive bias helps on toy Markov data (~8.5% over diagonal) but **hurts on real language data** (14-20% worse). The rotation constraint assumes symmetry the language domain doesn't have. The thesis is narrowed to **domain-specific** application: data with genuine rotational structure (physics, spatial reasoning).
+
+**Experiments completed** (2026-04-01):
+- #45: Dense ablation -- Spinor beats Dense at D>=9 despite 6-10x fewer params (toy)
+- #25: Epsilon bound -- simple norm-variance bound fails; two-channel leakage model needed
+- #44: Block size -- sharp transition at diagonal→rotation, flat across rotation types (toy)
+- #40: Discrete spinor -- Gumbel-softmax collapses with ES optimizer
+- #47: Convergence tracking -- no spontaneous polyhedral convergence
+- #31: **Language modeling** -- Diagonal SSM (469 PPL) beats QuatBlock (562) and Pascal grade-hierarchy (535) on WikiText-2 at D=768. Rotation is the wrong inductive bias for language. CUDA kernel: 732x speedup.
 
 ## Literature Organization
 
@@ -91,9 +99,15 @@ quarto render reports/framework_progress.qmd --to html
 2. ~~Define the state~~ **DONE** (revised to $h_t \in \mathbb{R}^D$)
 3. ~~Write formalization~~ **DONE** (revised to geometric inductive bias conjecture)
 4. ~~Construct toy example~~ **DONE** (`framework/toy_example.py`, `framework/train_toy.py`)
-5. **Dimension scaling experiment** (issue #38): test prediction advantage across D
-6. **Derive norm concentration bound**: when does Var[log ||h_t||] → 0?
-7. **Scale to factored quaternion SSM** (issue #31): real language data at D=768
+5. ~~Dimension scaling experiment~~ **DONE** (issue #38, #45: geometric advantage confirmed at D>=9)
+6. ~~Derive norm concentration bound~~ **PARTIALLY DONE** (issue #25: simple bound fails, two-channel model needed)
+7. ~~Scale to factored quaternion SSM~~ **DONE** (issue #31): rotation HURTS on language (469 vs 535-562 PPL). Domain-specific, not universal.
+8. **Domain-specific applications**: test geometric SSM on data with rotational structure (physics, molecular, spatial)
+9. **Learnable coupling topology**: gated rotation instead of fixed blocks
+10. **Re-run #40 with gradient-based optimizer** for fair discrete spinor comparison
 
-## Team Definitions
-Team definitions for multi-agent compositions are at `/mnt/d/dev/p/agent-almanac/teams/<team-name>.md`. Read the definition and orchestrate via `TeamCreate`.
+## Team Activation (REQUIRED when user requests a team)
+
+When the user asks to activate or use a team: (1) call `ToolSearch("select:TeamCreate")` to load the TeamCreate tool, (2) read the team definition from `/mnt/d/dev/p/agent-almanac/teams/<team-name>.md`, (3) call `TeamCreate` with the team configuration. Do NOT fall back to spawning individual agents via the Agent tool — always use TeamCreate for team requests.
+
+Available teams are listed in `/mnt/d/dev/p/agent-almanac/teams/_registry.yml`.
