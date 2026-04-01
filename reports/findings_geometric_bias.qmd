@@ -1,0 +1,359 @@
+---
+title: "Geometric Inductive Bias in Autoregressive SSMs: Domain-Specific, Not Universal"
+author: "Philipp Thoss"
+date: 2026-04-01
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+    self-contained: true
+bibliography: ../references.bib
+---
+
+## Abstract
+
+We investigate whether geometric (spinor/Clifford) structure in the transition
+kernel of an autoregressive state space model (SSM) improves next-token
+prediction. Across seven experiments spanning toy Markov data, real language
+(WikiText-2), and synthetic SO(3) rotation sequences, we find that the answer is
+**domain-specific**. On data with genuine rotational symmetry, rotation-based
+SSM cells (QuatBlock, Givens) outperform a diagonal baseline by 20--22%. On
+natural language, the same rotation constraint causes overfitting and degrades
+perplexity by 14--20%. Per-dimension decay (Clifford grade 1) is universally
+useful; rotation (grade 2) is beneficial only when the data exhibits the
+symmetry the constraint encodes.
+
+
+## Introduction
+
+State space models (SSMs) such as Mamba [@gu2023mamba] parameterize sequence
+processing as a linear recurrence $h_{t+1} = A_t h_t + B_t x_t$, where the
+structure of the transition matrix $A_t$ determines the model's inductive bias.
+The simplest choice -- a diagonal $A_t$ with per-dimension scalar decay -- is
+parameter-efficient and dominates current practice. But diagonal transitions
+cannot mix dimensions within a single step; inter-dimensional coupling requires
+multiple layers.
+
+This project asked whether imposing **geometric structure** on the transition --
+specifically, Spin($D$) rotations from Clifford algebra -- could improve
+prediction by encoding embedding-space geometry as an inductive bias. The
+hypothesis, formalized after a k=1 disproof showed the original Markov-quotient
+conjecture to be false, was:
+
+> An autoregressive SSM with spinor-constrained transitions (Spin($D$) rotation
+> + scalar decay) achieves better next-token prediction than an unconstrained
+> diagonal SSM at matched parameter count, because the rotation constraint acts
+> as a geometric inductive bias that encodes embedding space structure.
+
+We tested this hypothesis across three domains with increasing realism:
+synthetic second-order Markov sequences, WikiText-2 language modeling, and
+SO(3) rotation prediction. The results partially validate the hypothesis:
+geometric inductive bias helps substantially when the data has genuine
+rotational structure, and hurts when it does not.
+
+
+## Methods
+
+### SSM Cell Variants
+
+All models share the recurrence $h_{t+1} = f(h_t, x_t) + \bar{B}_t x_t$ with
+$h_t \in \mathbb{R}^D$. They differ only in the transition function $f$:
+
+1. **DiagonalSSM**: $f(h_t, x_t) = \text{diag}(\lambda_t) \odot h_t$ where
+   $\lambda_t = \sigma(W_\lambda x_t + b_\lambda) \in (0,1)^D$. Per-dimension
+   scalar decay with no inter-dimensional coupling. This is the Mamba-style
+   baseline.
+
+2. **QuatBlockSSM**: Partition $h_t$ into $D/3$ blocks of 3 dimensions. Each
+   block undergoes SU(2) sandwich product $q_t v q_t^{-1}$ where the unit
+   quaternion $q_t$ is derived from input-dependent bivector parameters,
+   followed by scalar decay. This implements factored Spin(3) rotation with
+   $O(D)$ parameters.
+
+3. **GivensSSM**: Partition $h_t$ into $D/2$ pairs. Each pair undergoes a
+   planar SO(2) rotation by an input-dependent angle $\theta_t$, followed by
+   scalar decay. This is the minimal rotation structure: $D/2$ independent
+   Givens rotations.
+
+4. **PascalSSM**: Combines per-dimension decay (grade 1) with QuatBlock
+   rotation (grade 2). Each dimension has its own decay parameter $\lambda_t^i$,
+   and blocks of 3 also rotate. This is the "best of both worlds" hypothesis
+   from the Clifford grade hierarchy: grade-1 flexibility plus grade-2
+   coupling.
+
+5. **DenseSSM** (ablation only): $f(h_t, x_t) = A_t h_t$ with unconstrained
+   $A_t \in \mathbb{R}^{D \times D}$. $D^2$ parameters per step. Used to
+   distinguish "geometry matters" from "non-diagonality matters."
+
+### Training
+
+- **Toy Markov experiments** (issues #25, #30, #38, #44, #45, #47):
+  $(1+\lambda)$-ES (evolutionary strategy) optimization.
+  Data: synthetic second-order Markov chain over a 4-token vocabulary.
+  Metric: test cross-entropy loss. Multiple seeds per condition.
+
+- **Language modeling** (issue #31):
+  Adam optimizer, WikiText-2, GPT-2 tokenizer (50257 vocab).
+  Architecture: embedding (D=768) $\to$ 2-layer SSM $\to$ linear head.
+  Metric: perplexity (PPL) on validation split.
+  CUDA fused recurrence kernel for efficiency.
+
+- **Rotation prediction** (issue #50):
+  Adam optimizer, synthetic SO(3) random walks with Ornstein-Uhlenbeck
+  angular velocity. Architecture: linear projection (4 $\to$ D=12) $\to$
+  SSM cell $\to$ linear projection (D $\to$ 4) $\to$ L2 normalize.
+  Metric: geodesic angular error in degrees. 3 seeds per condition.
+
+
+## Results
+
+### Toy Markov Data {#sec-toy}
+
+#### Initial Training Experiment (D=3, Issue #30)
+
+The first experiment compared Spinor+Decay against Diagonal at D=3 on a
+second-order Markov source with $(1+\lambda)$-ES, 150 iterations, 3 seeds.
+
+| Model | Test Loss | Std | Params |
+|-------|-----------|-----|--------|
+| **Spinor+Decay** | **0.5882** | 0.0036 | 14 |
+| Diagonal | 0.6446 | 0.0062 | 12 |
+
+: Initial training results at D=3. Spinor+Decay achieves 8.7% lower test loss. {#tbl-initial}
+
+Training halved both models' Markov scores (~50% reduction), but the Diagonal
+SSM remained far more Markovian (0.0087 vs 0.1793 for Spinor+Decay). The
+spinor model carries more history -- and uses it productively for this
+second-order source.
+
+#### Dimension Scaling (D=3 to D=16, Issue #38)
+
+| D | Spinor Loss | Diag Loss | Gap | Spinor Params | Diag Params |
+|---|------------|-----------|-----|---------------|-------------|
+| 3 | 0.6260 | 0.6679 | -0.042 | 10 | 12 |
+| 8 | 0.6282 | 0.6627 | -0.035 | 26 | 32 |
+| 16 | 0.6238 | 0.6556 | -0.032 | 50 | 64 |
+
+: Dimension scaling with Givens parameterization. Spinor advantage persists but narrows slightly. {#tbl-dimscaling}
+
+The prediction advantage persists across all D tested. The loss gap narrows
+from -0.042 to -0.032, indicating the geometric bias becomes relatively less
+dominant at higher D with the sparse Givens parameterization.
+
+#### Dense Ablation (Issue #45)
+
+The critical question: is the spinor advantage attributable to Spin($D$)
+geometry specifically, or merely to non-diagonality of the transition?
+
+At D=3, Dense (unconstrained $D \times D$) slightly edges Spinor. But at
+D$\geq$9, Spinor beats Dense despite having 6--10x fewer parameters. The
+rotation constraint acts as a regularizer that prevents the dense model from
+overfitting at higher dimensions.
+
+**Decision**: Spinor > Dense > Diagonal at D$\geq$9 confirms that **geometry
+matters beyond non-diagonality**. The Spin($D$) constraint is not merely
+reducing parameters -- it is encoding structurally relevant information.
+
+#### Block Size Transition (D=12, Issue #44)
+
+| Block $b$ | Rot Angles/Token | Test Loss | vs Diagonal |
+|-----------|-----------------|-----------|-------------|
+| 1 (diagonal) | 0 | baseline | -- |
+| 2 (Givens) | 6 | improved | sharp drop |
+| 3 (QuatBlock) | 12 | improved | flat |
+| 4 | 18 | improved | flat |
+| 6 | 30 | improved | flat |
+| 12 (full SO) | 66 | improved | flat |
+
+: Block size ablation at D=12. The transition from b=1 to b=2 produces the entire effect. {#tbl-blocksize}
+
+The transition from diagonal ($b=1$) to any rotation ($b \geq 2$) is sharp.
+Performance is then flat across all rotation block sizes from $b=2$ to $b=12$.
+This means: **any rotation is better than none, but more rotation does not
+help further** on this toy data.
+
+#### Negative Results
+
+- **Epsilon bound** (issue #25): A simple norm-variance bound for history
+  leakage yielded $R^2 = 0.19$ -- inadequate. History leaks through two
+  channels: norm AND direction. A two-channel leakage model is needed.
+
+- **Discrete spinor quantization** (issue #40): Gumbel-softmax relaxation
+  over the 2I $\subset$ Spin(3) binary icosahedral group collapsed under ES
+  optimization (all probability mass on one element). A gradient-based
+  optimizer may resolve this; the result is inconclusive.
+
+- **Polyhedral convergence** (issue #47): No spontaneous convergence of
+  trained quaternion parameters toward polyhedral group elements was observed.
+  The continuous rotation manifold is preferred by optimization.
+
+
+### Language Modeling (WikiText-2, Issue #31) {#sec-language}
+
+| Model | Val PPL | vs Diagonal | Architecture |
+|-------|---------|-------------|--------------|
+| **Diagonal** | **469** | -- | Per-dim decay, D=768 |
+| Pascal | 535 | +14% (worse) | Per-dim decay + rotation |
+| QuatBlock | 562 | +20% (worse) | 256 quaternion blocks |
+
+: WikiText-2 validation perplexity. Lower is better. Diagonal decisively wins. {#tbl-language}
+
+The rotation constraint that helped on toy data **hurts decisively on real
+language**. QuatBlock is 20% worse than Diagonal; Pascal (which adds per-dim
+decay flexibility to rotation) reduces the gap to 14% but still underperforms
+the rotation-free baseline.
+
+The failure mode is overfitting: rotation memorizes training patterns that do
+not generalize. Natural language does not have rotational symmetry in its
+embedding dynamics -- token co-occurrence statistics are not organized as
+rotations in $\mathbb{R}^{768}$.
+
+**CUDA kernel**: A fused recurrence kernel achieved 732x throughput
+improvement (265 $\to$ 194,000 tokens/second), confirming the architecture is
+not inherently slow -- the rotation constraint itself is the problem on this
+domain.
+
+
+### SO(3) Rotation Prediction (Issue #50) {#sec-rotation}
+
+To test the domain-specificity thesis, we generated synthetic SO(3) random
+walks with Ornstein-Uhlenbeck angular velocity and trained each SSM variant
+to predict the next rotation at D=12.
+
+| Model | Angular Error | Std | vs Diagonal |
+|-------|--------------|-----|-------------|
+| **Givens** | **2.24 deg** | -- | -22% (better) |
+| **QuatBlock** | **2.30 deg** | -- | -20% (better) |
+| Pascal | 2.60 deg | -- | -10% (better) |
+| Diagonal | 2.88 deg | -- | baseline |
+
+: SO(3) rotation prediction at D=12. Rotation-based cells substantially outperform Diagonal. {#tbl-rotation}
+
+On data with genuine rotational structure, rotation IS the right inductive
+bias. Givens (2.24 deg) and QuatBlock (2.30 deg) beat Diagonal (2.88 deg) by
+20--22%. Givens slightly edges QuatBlock at D=12, likely because $D/2 = 6$
+independent rotation planes provide more coverage than $D/3 = 4$ quaternion
+blocks at this dimension.
+
+Pascal (per-dim decay + rotation) also beats Diagonal (2.60 deg, -10%) but
+underperforms the tighter rotation-only constraints -- the per-dimension
+flexibility is unnecessary overhead when the data is purely rotational.
+
+
+## Discussion
+
+### The Domain-Specificity Thesis
+
+The experimental arc tells a clear story: geometric inductive bias is
+**domain-specific, not universal**.
+
+| Domain | Rotation vs Diagonal | Interpretation |
+|--------|---------------------|----------------|
+| Toy Markov | **+8.5% better** | Rotation regularizes; any coupling helps |
+| WikiText-2 | **-20% worse** | No rotational symmetry; constraint overfits |
+| SO(3) walks | **+22% better** | Genuine rotational symmetry; constraint matches data |
+
+: Summary across domains. {#tbl-summary}
+
+The rotation constraint encodes an assumption: that state dynamics involve
+rotational mixing of embedding dimensions. When this assumption matches the
+data-generating process, the constraint acts as a powerful inductive bias. When
+it does not, it is a liability that forces the model to represent non-rotational
+dynamics through an inappropriately constrained transition.
+
+### Clifford Grade Hierarchy
+
+The results align with the Clifford algebraic decomposition of the transition:
+
+- **Grade 0** (scalar): global decay. Present in all models.
+- **Grade 1** (vectors): per-dimension decay. The distinguishing feature of
+  DiagonalSSM and PascalSSM. Universally useful -- it allows each embedding
+  dimension to forget at its own rate.
+- **Grade 2** (bivectors): rotation/mixing. The distinguishing feature of
+  QuatBlock and Givens. Domain-specific -- helpful only when the data has
+  rotational structure.
+
+Pascal (grade 1 + grade 2) underperforms both pure Diagonal (grade 1 only, on
+language) and pure QuatBlock (grade 2 dominant, on rotations). This suggests
+that **combining grades does not automatically combine their benefits** --
+the optimization landscape of the combined model is harder, and the
+unnecessary grade acts as noise.
+
+### Block Size and Rotation Granularity
+
+The block-size ablation (#44) revealed that the critical transition is from
+**no rotation to any rotation** ($b=1 \to b=2$). Further increasing rotation
+block size ($b=2$ through $b=12$) produces no additional benefit on toy data.
+This suggests that on simple data, even minimal inter-dimensional coupling
+(one Givens angle per pair) captures most of the available geometric structure.
+
+On SO(3) data at D=12, Givens ($D/2 = 6$ rotation planes) slightly
+outperforms QuatBlock ($D/3 = 4$ quaternion blocks). More rotation planes
+provide better coverage of the rotation manifold at this dimension. Whether
+QuatBlock wins at D=3 (where it exactly matches SO(3)) remains an open
+question.
+
+### Parameter Efficiency
+
+The Spinor > Dense result at D$\geq$9 (#45) is striking: the rotation
+constraint achieves better prediction with 6--10x fewer parameters than an
+unconstrained dense transition. This is the hallmark of a well-matched
+inductive bias -- the constraint eliminates irrelevant degrees of freedom and
+focuses optimization on the structurally relevant subspace.
+
+### Limitations
+
+1. **Toy Markov data**: The synthetic second-order Markov source is simple.
+   The geometric advantage on toy data may not generalize to complex
+   structured data beyond SO(3) rotation walks.
+
+2. **Single language benchmark**: WikiText-2 is a standard but small language
+   benchmark. The negative result should be verified on larger datasets,
+   though we have no reason to expect rotational structure to emerge at scale.
+
+3. **Fixed architecture**: All experiments used a fixed coupling topology
+   (block-diagonal). Learnable gating (issue #51) could allow the model to
+   adaptively apply rotation where helpful and suppress it elsewhere.
+
+4. **Discrete spinor inconclusive**: The Gumbel-softmax collapse under ES
+   optimization (#40) means we cannot yet evaluate whether discrete subgroups
+   of Spin($D$) offer benefits over continuous rotations.
+
+
+## Conclusion and Future Work
+
+The geometric inductive bias thesis is **partially validated**: rotation
+structure improves autoregressive SSM prediction by 20--22% on data with
+genuine rotational symmetry and degrades it by 14--20% on data without it.
+The Clifford grade hierarchy correctly predicts which components matter:
+grade 1 (per-dimension decay) is universal, grade 2 (rotation) is
+domain-specific.
+
+Three directions follow from these findings:
+
+1. **N-body physics and molecular dynamics** (issue #48): These domains have
+   established benchmarks with genuine SO(3) symmetry. The 20--22% advantage
+   on synthetic rotation data should translate to real physical systems where
+   rotational structure is intrinsic.
+
+2. **Gated rotation** (issue #51): A learnable gate that blends rotation and
+   diagonal paths could adapt to the domain automatically -- opening the gate
+   on rotational data and closing it on language. The critical diagnostic is
+   mean gate activation: near 0 on language (correct avoidance of rotation),
+   near 1 on rotation data (correct exploitation of symmetry).
+
+3. **Learnable coupling topology**: Rather than fixed block-diagonal
+   structure, allow the model to learn which dimensions should couple via
+   rotation. This could recover domain-specific geometric structure without
+   prior knowledge of the symmetry group.
+
+The negative result on language is as scientifically informative as the
+positive results on rotation data. It delineates the boundary of applicability:
+geometric inductive bias is a powerful tool when matched to domain symmetry,
+and a harmful constraint when imposed where no such symmetry exists.
+
+
+## References

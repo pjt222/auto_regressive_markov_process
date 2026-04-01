@@ -187,6 +187,126 @@ class DiagonalSSM(nn.Module):
         return decay * h_prev + injection
 
 
+class GatedRotationSSM(nn.Module):
+    """Gated rotation SSM: learns when to rotate vs use diagonal decay.
+
+    gate_t = sigmoid(gate_proj(x_t))           # per-block gate
+    h_rotated = rot_decay * quat_rotate(h_t, bivec(x_t))  # rotation path
+    h_diagonal = diag_decay(x_t) * h_t         # diagonal path
+    h_{t+1} = gate_t * h_rotated + (1 - gate_t) * h_diagonal + injection(x_t)
+
+    The gate learns which path is useful for the domain:
+    - Near 0 on language data -> model avoids rotation (correct: rotation hurts)
+    - Near 1 on rotation data -> model uses rotation (correct: rotation helps)
+
+    Reuses QuatBlockSSM._quat_rotate_blocks() for the rotation math.
+    """
+
+    def __init__(self, d_model, block_size=3):
+        super().__init__()
+        assert d_model % block_size == 0, f"d_model={d_model} not divisible by block_size={block_size}"
+        self.d_model = d_model
+        self.block_size = block_size
+        self.n_blocks = d_model // block_size
+
+        # Rotation path: bivector params for quaternion rotation + scalar decay
+        self.bivector_proj = nn.Linear(d_model, self.n_blocks * 3)
+        self.rot_decay_proj = nn.Linear(d_model, 1)
+
+        # Diagonal path: per-dimension decay
+        self.diag_decay_proj = nn.Linear(d_model, d_model)
+
+        # Gate: per-block decision (rotate or diagonal)
+        self.gate_proj = nn.Linear(d_model, self.n_blocks)
+
+        # Injection (shared)
+        self.input_proj = nn.Linear(d_model, d_model)
+
+        # Initialize gate bias to -2.0 so sigmoid ≈ 0.12 (starts mostly diagonal)
+        nn.init.constant_(self.gate_proj.bias, -2.0)
+        nn.init.constant_(self.rot_decay_proj.bias, 1.4)
+        nn.init.constant_(self.diag_decay_proj.bias, 1.4)
+        nn.init.zeros_(self.bivector_proj.bias)
+
+    def forward(self, x, h_prev):
+        """
+        x: (batch, d_model)
+        h_prev: (batch, d_model)
+        returns: h_next (batch, d_model), gate_value (batch, n_blocks)
+        """
+        batch = x.shape[0]
+
+        # Gate
+        gate = torch.sigmoid(self.gate_proj(x))  # (batch, n_blocks)
+
+        # Rotation path
+        bivectors = self.bivector_proj(x).view(batch, self.n_blocks, 3)
+        rot_decay = torch.sigmoid(self.rot_decay_proj(x))  # (batch, 1)
+        h_blocks = h_prev.view(batch, self.n_blocks, 3)
+        rotated = QuatBlockSSM._quat_rotate_blocks(None, h_blocks, bivectors)
+        h_rotated = rot_decay * rotated.view(batch, self.d_model)  # (batch, d_model)
+
+        # Diagonal path
+        diag_decay = torch.sigmoid(self.diag_decay_proj(x))  # (batch, d_model)
+        h_diagonal = diag_decay * h_prev  # (batch, d_model)
+
+        # Blend: expand gate from per-block to per-dim for broadcasting
+        # gate is (batch, n_blocks), expand to (batch, n_blocks, block_size) -> (batch, d_model)
+        gate_expanded = gate.unsqueeze(-1).expand(-1, -1, self.block_size).reshape(batch, self.d_model)
+
+        # Injection
+        injection = self.input_proj(x)
+
+        h_next = gate_expanded * h_rotated + (1 - gate_expanded) * h_diagonal + injection
+        return h_next
+
+    def forward_with_gate(self, x, h_prev):
+        """Like forward() but also returns the gate activation for diagnostics."""
+        batch = x.shape[0]
+
+        gate = torch.sigmoid(self.gate_proj(x))  # (batch, n_blocks)
+
+        bivectors = self.bivector_proj(x).view(batch, self.n_blocks, 3)
+        rot_decay = torch.sigmoid(self.rot_decay_proj(x))
+        h_blocks = h_prev.view(batch, self.n_blocks, 3)
+        rotated = QuatBlockSSM._quat_rotate_blocks(None, h_blocks, bivectors)
+        h_rotated = rot_decay * rotated.view(batch, self.d_model)
+
+        diag_decay = torch.sigmoid(self.diag_decay_proj(x))
+        h_diagonal = diag_decay * h_prev
+
+        gate_expanded = gate.unsqueeze(-1).expand(-1, -1, self.block_size).reshape(batch, self.d_model)
+        injection = self.input_proj(x)
+
+        h_next = gate_expanded * h_rotated + (1 - gate_expanded) * h_diagonal + injection
+        return h_next, gate
+
+    def step_precomputed(self, bivectors, gate, rot_decay, diag_decay, injection, h_prev):
+        """Recurrence step with pre-computed projections (no Linear calls).
+
+        bivectors: (batch, n_blocks, 3)
+        gate: (batch, n_blocks)
+        rot_decay: (batch, 1)
+        diag_decay: (batch, d_model)
+        injection: (batch, d_model)
+        h_prev: (batch, d_model)
+        """
+        batch = h_prev.shape[0]
+
+        # Rotation path
+        h_blocks = h_prev.view(batch, self.n_blocks, 3)
+        rotated = QuatBlockSSM._quat_rotate_blocks(None, h_blocks, bivectors)
+        h_rotated = rot_decay * rotated.view(batch, self.d_model)
+
+        # Diagonal path
+        h_diagonal = diag_decay * h_prev
+
+        # Blend with per-block gate expanded to per-dim
+        gate_expanded = gate.unsqueeze(-1).expand(-1, -1, self.block_size).reshape(batch, self.d_model)
+
+        return gate_expanded * h_rotated + (1 - gate_expanded) * h_diagonal + injection
+
+
 class SSMLayer(nn.Module):
     """Single SSM layer: projection → SSM cell → LayerNorm + residual."""
 
@@ -198,6 +318,8 @@ class SSMLayer(nn.Module):
             self.ssm = GivensSSM(d_model)
         elif ssm_type == "diagonal":
             self.ssm = DiagonalSSM(d_model)
+        elif ssm_type == "gated":
+            self.ssm = GatedRotationSSM(d_model, block_size=3)
         else:
             raise ValueError(f"Unknown ssm_type: {ssm_type}")
 
@@ -232,6 +354,17 @@ class SSMLayer(nn.Module):
             injection_all = ssm.input_proj(x)  # (B, T, D)
             for t in range(seq_len):
                 h = ssm.step_precomputed(decay_all[:, t], injection_all[:, t], h)
+                out[:, t] = h
+        elif isinstance(ssm, GatedRotationSSM):
+            bivectors_all = ssm.bivector_proj(x).view(batch, seq_len, ssm.n_blocks, 3)
+            gate_all = torch.sigmoid(ssm.gate_proj(x))  # (B, T, n_blocks)
+            rot_decay_all = torch.sigmoid(ssm.rot_decay_proj(x))  # (B, T, 1)
+            diag_decay_all = torch.sigmoid(ssm.diag_decay_proj(x))  # (B, T, D)
+            injection_all = ssm.input_proj(x)  # (B, T, D)
+            for t in range(seq_len):
+                h = ssm.step_precomputed(
+                    bivectors_all[:, t], gate_all[:, t], rot_decay_all[:, t],
+                    diag_decay_all[:, t], injection_all[:, t], h)
                 out[:, t] = h
         else:
             # Fallback for unknown SSM types
