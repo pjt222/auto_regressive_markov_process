@@ -64,6 +64,18 @@ class QuatBlockSSM(nn.Module):
         h_next = decay * rotated.view(batch, self.d_model) + injection
         return h_next
 
+    def step_precomputed(self, bivectors, decay, injection, h_prev):
+        """Recurrence step with pre-computed projections (no Linear calls).
+
+        bivectors: (batch, n_blocks, 3)
+        decay: (batch, 1)
+        injection: (batch, d_model)
+        h_prev: (batch, d_model)
+        """
+        h_blocks = h_prev.view(-1, self.n_blocks, 3)
+        rotated = self._quat_rotate_blocks(h_blocks, bivectors)
+        return decay * rotated.view(-1, self.d_model) + injection
+
     def _quat_rotate_blocks(self, h_blocks, bivectors):
         """Batched quaternion sandwich product for all blocks simultaneously.
 
@@ -127,19 +139,26 @@ class GivensSSM(nn.Module):
         injection = self.input_proj(x)
 
         # Givens rotation
-        h_pairs = h_prev.view(batch, self.n_pairs, 2)
-        cos_a = torch.cos(angles).unsqueeze(-1)  # (batch, n_pairs, 1)
-        sin_a = torch.sin(angles).unsqueeze(-1)
-
-        a = h_pairs[..., 0:1]  # (batch, n_pairs, 1)
-        b = h_pairs[..., 1:2]
-
-        rotated_a = cos_a * a - sin_a * b
-        rotated_b = sin_a * a + cos_a * b
-        rotated = torch.cat([rotated_a, rotated_b], dim=-1).view(batch, self.d_model)
-
+        rotated = self._rotate(h_prev, angles)
         h_next = decay * rotated + injection
         return h_next
+
+    def _rotate(self, h_prev, angles):
+        """Apply Givens rotation to state."""
+        batch = h_prev.shape[0]
+        h_pairs = h_prev.view(batch, self.n_pairs, 2)
+        cos_a = torch.cos(angles).unsqueeze(-1)
+        sin_a = torch.sin(angles).unsqueeze(-1)
+        a = h_pairs[..., 0:1]
+        b = h_pairs[..., 1:2]
+        rotated_a = cos_a * a - sin_a * b
+        rotated_b = sin_a * a + cos_a * b
+        return torch.cat([rotated_a, rotated_b], dim=-1).view(batch, self.d_model)
+
+    def step_precomputed(self, angles, decay, injection, h_prev):
+        """Recurrence step with pre-computed projections."""
+        rotated = self._rotate(h_prev, angles)
+        return decay * rotated + injection
 
 
 class DiagonalSSM(nn.Module):
@@ -163,6 +182,10 @@ class DiagonalSSM(nn.Module):
         h_next = decay * h_prev + injection
         return h_next
 
+    def step_precomputed(self, decay, injection, h_prev):
+        """Recurrence step with pre-computed projections."""
+        return decay * h_prev + injection
+
 
 class SSMLayer(nn.Module):
     """Single SSM layer: projection → SSM cell → LayerNorm + residual."""
@@ -184,11 +207,38 @@ class SSMLayer(nn.Module):
         """x: (batch, seq_len, d_model) -> (batch, seq_len, d_model)"""
         batch, seq_len, d_model = x.shape
         h = torch.zeros(batch, d_model, device=x.device, dtype=x.dtype)
-        outputs = []
-        for t in range(seq_len):
-            h = self.ssm(x[:, t], h)
-            outputs.append(h)
-        out = torch.stack(outputs, dim=1)
+        out = torch.empty(batch, seq_len, d_model, device=x.device, dtype=x.dtype)
+
+        # Precompute all input-dependent projections as batched matmuls
+        ssm = self.ssm
+        if isinstance(ssm, QuatBlockSSM):
+            bivectors_all = ssm.bivector_proj(x).view(batch, seq_len, ssm.n_blocks, 3)
+            decay_all = torch.sigmoid(ssm.decay_proj(x))  # (B, T, 1)
+            injection_all = ssm.input_proj(x)  # (B, T, D)
+            for t in range(seq_len):
+                h = ssm.step_precomputed(
+                    bivectors_all[:, t], decay_all[:, t], injection_all[:, t], h)
+                out[:, t] = h
+        elif isinstance(ssm, GivensSSM):
+            angles_all = ssm.angle_proj(x)  # (B, T, n_pairs)
+            decay_all = torch.sigmoid(ssm.decay_proj(x))  # (B, T, 1)
+            injection_all = ssm.input_proj(x)  # (B, T, D)
+            for t in range(seq_len):
+                h = ssm.step_precomputed(
+                    angles_all[:, t], decay_all[:, t], injection_all[:, t], h)
+                out[:, t] = h
+        elif isinstance(ssm, DiagonalSSM):
+            decay_all = torch.sigmoid(ssm.decay_proj(x))  # (B, T, D)
+            injection_all = ssm.input_proj(x)  # (B, T, D)
+            for t in range(seq_len):
+                h = ssm.step_precomputed(decay_all[:, t], injection_all[:, t], h)
+                out[:, t] = h
+        else:
+            # Fallback for unknown SSM types
+            for t in range(seq_len):
+                h = ssm(x[:, t], h)
+                out[:, t] = h
+
         return self.norm(out) + x  # residual connection
 
 

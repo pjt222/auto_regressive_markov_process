@@ -35,13 +35,13 @@ See `literature/complexity_theory/STATUS.md` and `literature/geometric_computati
 
 ## Project Status
 
-**Phase**: Experimental validation (4 experiments completed 2026-04-01)
+**Phase**: Experimental validation (7 experiments completed 2026-04-01)
 
 **Deep review completed**: 2026-03-31 (7 agents, 3 phases). See:
 - `literature/reviews/deep_review_2026_03_31.md` -- full report
 - `literature/reviews/synoptic_integration.md` -- gestalt from synoptic-mind team
 
-**Central finding**: Geometric (spinor) inductive bias helps on toy Markov data (~8.5% over diagonal) but **hurts on real language data** (14-20% worse). The rotation constraint assumes symmetry the language domain doesn't have. The thesis is narrowed to **domain-specific** application: data with genuine rotational structure (physics, spatial reasoning).
+**Central finding**: Geometric (spinor) inductive bias is **domain-specific**. It hurts on language data (14-20% worse, #31) but **helps substantially on data with genuine rotational structure** (20-22% better, #50). The rotation constraint assumes symmetry — when the data has it, the bias pays off; when it doesn't, it's a liability.
 
 **Experiments completed** (2026-04-01):
 - #45: Dense ablation -- Spinor beats Dense at D>=9 despite 6-10x fewer params (toy)
@@ -50,6 +50,7 @@ See `literature/complexity_theory/STATUS.md` and `literature/geometric_computati
 - #40: Discrete spinor -- Gumbel-softmax collapses with ES optimizer
 - #47: Convergence tracking -- no spontaneous polyhedral convergence
 - #31: **Language modeling** -- Diagonal SSM (469 PPL) beats QuatBlock (562) and Pascal grade-hierarchy (535) on WikiText-2 at D=768. Rotation is the wrong inductive bias for language. CUDA kernel: 732x speedup.
+- #50: **SO(3) rotation prediction** -- Givens (2.24°) and QuatBlock (2.30°) beat Diagonal (2.88°) by 20-22% on synthetic rotation walks at D=12. Rotation IS the right bias for rotational data. Pascal (2.60°) also beats Diagonal but underperforms tighter constraints.
 
 ## Literature Organization
 
@@ -102,9 +103,12 @@ quarto render reports/framework_progress.qmd --to html
 5. ~~Dimension scaling experiment~~ **DONE** (issue #38, #45: geometric advantage confirmed at D>=9)
 6. ~~Derive norm concentration bound~~ **PARTIALLY DONE** (issue #25: simple bound fails, two-channel model needed)
 7. ~~Scale to factored quaternion SSM~~ **DONE** (issue #31): rotation HURTS on language (469 vs 535-562 PPL). Domain-specific, not universal.
-8. **Domain-specific applications**: test geometric SSM on data with rotational structure (physics, molecular, spatial)
-9. **Learnable coupling topology**: gated rotation instead of fixed blocks
-10. **Re-run #40 with gradient-based optimizer** for fair discrete spinor comparison
+8. ~~Domain-specific applications~~ **DONE** (issue #50): rotation prediction confirms geometric bias helps on SO(3) data (20-22% over Diagonal). Givens slightly beats QuatBlock at D=12.
+9. **Scale #50 to D=3 and D=48**: test whether QuatBlock wins at D=3 (exact SO(3) match) where it should have maximum advantage
+10. **N-body physics** (#48): established benchmark with genuine SO(3) symmetry
+11. **Learnable coupling topology** (#51): gated rotation instead of fixed blocks
+12. **Re-run #40 with gradient-based optimizer** for fair discrete spinor comparison
+13. **Performance**: CUDA blockDim restructuring (#53), numba-accelerate remaining ES scripts (#54)
 
 ## Team Activation (REQUIRED when user requests a team)
 

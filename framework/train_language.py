@@ -164,10 +164,14 @@ def run_model(ssm_type, args, tokenizer, train_dataset, val_dataset, device):
     print(f"  Other params: {total_params - ssm_params:,}", flush=True)
     print(f"{'='*70}", flush=True)
 
+    use_cuda = device.type == "cuda"
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                              shuffle=True, drop_last=True, num_workers=0)
+                              shuffle=True, drop_last=True,
+                              pin_memory=use_cuda, num_workers=2 if use_cuda else 0,
+                              persistent_workers=use_cuda)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
-                            shuffle=False, drop_last=True, num_workers=0)
+                            shuffle=False, drop_last=True,
+                            pin_memory=use_cuda)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr,
                                   weight_decay=0.01)
