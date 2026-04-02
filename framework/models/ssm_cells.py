@@ -222,8 +222,8 @@ class GatedRotationSSM(nn.Module):
         # Injection (shared)
         self.input_proj = nn.Linear(d_model, d_model)
 
-        # Initialize gate bias to -2.0 so sigmoid ≈ 0.12 (starts mostly diagonal)
-        nn.init.constant_(self.gate_proj.bias, -2.0)
+        # Initialize gate bias to 0.0 so sigmoid = 0.5 (equal weight to both paths)
+        nn.init.constant_(self.gate_proj.bias, 0.0)
         nn.init.constant_(self.rot_decay_proj.bias, 1.4)
         nn.init.constant_(self.diag_decay_proj.bias, 1.4)
         nn.init.zeros_(self.bivector_proj.bias)

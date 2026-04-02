@@ -78,5 +78,9 @@ _output/
 # Session continuity (ephemeral)
 CONTINUE_HERE.md
 
+# Node.js
+node_modules/
+dist/
+
 # Claude Code specific
 .claude/settings.local.json
