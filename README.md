@@ -1,5 +1,7 @@
 # Auto-Regressive Markov Process Research
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/pjt222/auto_regressive_markov_process)
+
 A research project exploring the intersection of auto-regression, Markov processes, complexity theory, and geometric computation.
 
 ## Overview
